@@ -24,3 +24,29 @@ The server and the client are written in Rust.
 
 - There is an active adversary between the client and the server.
 - A user can not dump the memory of the client software.
+
+## Cryptography
+
+In all the diagrams below, the data in red is stored on the server. All other data is computed by the client and only exists in the client's memory.
+
+### Encryption of the data stored on the server
+
+In all the diagrams below, a dotted arrow between a key and some data stored on the server, like this :
+
+![](readme-images/dotted%20arrow%20example.drawio.png)
+
+means that, instead of storing the data B, we store **ENC<sub>key A</sub>(data B)** on the server.
+
+#### Encryption algorithm
+
+ENC is the authenticated encryption algorithm **XSalsa20 + Poly1305 MAC**.
+
+#### Key
+
+All keys are 256 bits long.
+
+#### Nonce
+
+The nonce is 192 bit longs and is chosen randomly.
+
+For a given key, the nonce collision probability stays below 2<sup>-32</sup> as long as the number of encryptions is lower than 2<sup>80</sup> (birthday problem). Even if we did 1'000'000'000 encryptions par second for 100 years, this would only result in less than 2<sup>62</sup> encryptions. Thus, the risk of collision is negligible.

@@ -8,7 +8,7 @@ The web server is written in Rust. The client side code is written in WebAssembl
 A single server (online vault) can be accessed by several client organizations. Each organization can store documents on the server.
 
 ### Documents storage on the server
-- The server never sees the documents in clear and is not be able to recover them (assuming “good” passwords).
+- The server never sees the documents in clear and is not able to recover them (assuming “good” passwords).
 - If a document’s encryption key leaks, it is not possible to decrypt other documents.
 ### Unlocking the vault
 - Before accessing the vault, the client needs to authenticate. Two people out of n need to gather to access the vault. The process is the following:

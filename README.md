@@ -20,9 +20,10 @@ A single server (online vault) can be accessed by several client organizations. 
 - A client can revoke one of its users. This does not require the re-encryption of the documents.
 ### Documents access
 - Each document on the server is owned by one or several clients.
-- A client can upload a document on the server. This makes him the owner of this document.
+- A client can upload a document on the server. This makes him an owner of this document.
 - Any owner of a document can add another client as owner of the document.
-- Any owner of a document can download it, upload an updated version or delete the document.
+- Any owner of a document can download it or upload an updated version of the document.
+- Any owner of a document can delete a document (for himself). If other clients own the document, they can still access it.
 
 ### Security assumptions
 

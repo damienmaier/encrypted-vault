@@ -1,20 +1,23 @@
 # Encrypted Vault
-This is a web application that provides an online vault for companies that need to store very sensitive files.
+This is a web application that provides an online vault for organizations that need to store very sensitive documents.
 
-The server and the client are written in Rust.
-## Requirements
+The web server is written in Rust. The client side code is written in WebAssembly compiled Rust that runs in the browser.
+
+## Description and usage
+
+A single server (online vault) can be accessed by several client organizations. Each organization can store documents on the server.
+
 ### Documents storage on the server
-- The server should never see the documents in clear and should not be able to recover them (assuming “good” passwords).
-- If a document’s encryption key leaks, one should not be able to decrypt other documents.
-### Client authentication
+- The server never sees the documents in clear and is not be able to recover them (assuming “good” passwords).
+- If a document’s encryption key leaks, it is not possible to decrypt other documents.
+### Unlocking the vault
 - Before accessing the vault, the client needs to authenticate. Two people out of n need to gather to access the vault. The process is the following:
     1. The company sends its company name to the server. 
     2. Then, two members of the company (out of n) enter their credentials (username + password) to unlock the vault.
-- The client should not have to enter more than one password per member.
-- Clients should be able to connect to the vault from any computer and change device as they want.
-- You need to be able to revoke a user. This should not require the re-encryption of all files.
+- The client does not need to enter more than one password per member.
+- Clients can connect to the vault from any computer and change device as they want.
+- A client can revoke one of its users. This does not require the re-encryption of the documents.
 ### Documents access
-- Several client companies can store documents on the server.
 - Each document on the server is owned by one or several clients.
 - A client can upload a document on the server. This makes him the owner of this document.
 - Any owner of a document can add another client as owner of the document.
@@ -23,11 +26,13 @@ The server and the client are written in Rust.
 ### Security assumptions
 
 - There is an active adversary between the client and the server.
-- A user can not dump the memory of the client software.
+- Users can not dump the memory of the client software.
 
 ## Cryptography
 
-In all the diagrams below, the data in red is stored on the server. All other data is computed by the client and only exists in the client's memory.
+In all the diagrams below, **the data in red is stored on the server**.
+
+**All other data** is computed by the client and **only exists in the client's memory**.
 
 ### Encryption of the data stored on the server
 
@@ -47,6 +52,9 @@ All keys are 256 bits long.
 
 #### Nonce
 
-The nonce is 192 bit longs and is chosen randomly.
+The nonce is 192 bits long and is chosen randomly.
 
-For a given key, the nonce collision probability stays below 2<sup>-32</sup> as long as the number of encryptions is lower than 2<sup>80</sup> (birthday problem). Even if we did 1'000'000'000 encryptions par second for 100 years, this would only result in less than 2<sup>62</sup> encryptions. Thus, the risk of collision is negligible.
+For a given key, the nonce collision probability stays below 2<sup>-32</sup> as long as the number of encryptions is lower than 2<sup>80</sup> (birthday problem). Even if we did 1'000'000'000 encryptions par second for 100 years, this would still result in less than 2<sup>62</sup> encryptions. Thus, the risk of collision is negligible.
+
+The nonce is stored alongside the encrypted data.
+

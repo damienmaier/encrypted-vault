@@ -23,8 +23,6 @@ As the client organization must be able to access the vault from any device, the
 
 Each client organization has an associated **private / public key pair**. This pair of keys is what allows the client to encrypt and decrypt the data stored on the server. Retrieving the public / private key pair is the first thing the client does when he accesses the vault.
 
-The public / private key pair of an organization never changes.
-
 ### Data stored on the server
 
 For each client organization, the server stores a list of usernames and encrypted private key shares. It also stores the public key of the organization.

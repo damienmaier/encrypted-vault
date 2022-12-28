@@ -9,7 +9,7 @@ A single server (online vault) can be accessed by several client organizations. 
 
 ### Documents storage on the server
 - The server never sees the documents in clear and is not able to recover them (assuming “good” passwords).
-- If a document’s encryption key leaks, it is not possible to decrypt other documents.
+- If a document’s encryption key leaks, it does not allow to decrypt other documents.
 ### Unlocking the vault
 - Before accessing the vault, the client needs to authenticate. Two people out of n need to gather to access the vault. The process is the following:
     1. The company sends its company name to the server. 

@@ -33,6 +33,8 @@ For each client organization, the server stores :
 
 ### Public / private key creation
 
+![](readme-images/Private%20key%20retrieving.drawio.png)
+
 When a client organization is created, the following process takes place :
 
 - All users of the client organization provide their username and password to the client software.
@@ -41,7 +43,7 @@ When a client organization is created, the following process takes place :
 - The client software generates a public / private key pair for the organization.
 - The client software uses the **shamir secret sharing** algorithm to generate one **private key share** for each user, where 2 shares are enough to recover the private key.
 - The client software encrypts each share with the corresponding user derived key.
-- The client software stores the encrypted shares, the saluts, the associated usernames and the public key on the server.
+- The client software stores the encrypted shares, the salts, the associated usernames and the public key on the server.
 
 ### Public / private key retrieving
 

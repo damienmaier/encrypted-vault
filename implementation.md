@@ -1,4 +1,4 @@
-# Operation
+# Application design
 
 ## Client server communication
 

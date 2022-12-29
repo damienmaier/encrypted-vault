@@ -29,3 +29,10 @@ A single server (online vault) can be accessed by several client organizations. 
 - There is an active adversary between the client and the server.
 - Users can not dump the memory of the client software.
 
+## Application design
+
+[Application design](implementation.md)
+
+## Cryptographic primitives
+
+[Cryptographic primitives](cyptography_primitives.md)

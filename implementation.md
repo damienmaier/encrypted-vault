@@ -30,7 +30,7 @@ In all the diagrams below, I use the following conventions :
 The data represented in **red** is **stored on the server**. **All the other elements are never seen by the server** and can only exist in the client's memory.
 
 ### Symmetrical and asymmetrical keys
-Vertical keys are symmetrical keys. Horizontal keys are asymmetrical keys.
+Horizontal keys are symmetrical keys. Vertical keys are asymmetrical keys.
 
 ![](readme-images/example%20sym%20or%20asym%20keys.drawio.png)
 

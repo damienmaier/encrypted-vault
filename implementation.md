@@ -6,6 +6,8 @@ All communications between the client and the server are done using an HTTPS API
 
 As the client organization must be able to access the vault from any device, the server uses a certificate issued by a recognized certificate authority.
 
+## HTTP API
+
 | Action                  | Data sent with the request                                                          | Data sent with the response                                                                | Authentication token required | Restriction                                                      |
 |-------------------------|-------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------|
 | Client account creation | Organization name, user names, user salts, encrypted private key shares, public key |                                                                                            | no                            |                                                                  |
@@ -18,6 +20,25 @@ As the client organization must be able to access the vault from any device, the
 | Update document         | Document ID, encrypted document name, encrypted document content                    |                                                                                            | yes                           | The client associated to the token must be owner of the document |
 | Delete document         | Document ID                                                                         |                                                                                            | yes                           | The client associated to the token must be owner of the document |
 | Add owner               | Document ID, other organization name, encrypted document key                        |                                                                                            | yes                           | The client associated to the token must be owner of the document |
+
+## Diagram notation
+
+In all the diagrams below, I use the following conventions :
+
+### Data stored on the server
+
+The data represented in **red** is **stored on the server**. **All the other elements are never seen by the server** and can only exist in the client's memory.
+
+### Symmetrical and asymmetrical keys
+Vertical keys are symmetrical keys. Horizontal keys are asymmetrical keys.
+
+![](readme-images/example%20sym%20or%20asym%20keys.drawio.png)
+
+### Encrypted data
+
+A dotted arrow between a key and some data means that the data is encrypted and can only be decrypted with the key.
+
+![](readme-images/dotted%20arrow%20example.drawio.png)
 
 ## Client organization public / private key pair
 

@@ -35,7 +35,7 @@ TODO cost parameters
 
 ## Randomness
 
-All the random values are chosen using the randomness provided by the OS. On Linux, this means using the `getrandom` system call.
+All the random values are chosen using the randomness provided by the OS.
 
 For the nonces, symmetric keys and asymmetric keys, this is done by using `dryoc::dryocsecretbox::Nonce::gen()`, `dryoc::dryocsecretbox::Key::gen()`, `dryoc::dryocbox::Nonce::gen()` and `dryoc::dryocbox::KeyPair::gen()`. Those functions internally use [rand::rngs::OsRng](https://docs.rs/rand/0.5.0/rand/rngs/struct.OsRng.html), which is an RNG that retrieves randomness from the OS.
 

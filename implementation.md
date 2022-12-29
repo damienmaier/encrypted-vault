@@ -25,7 +25,9 @@ Each client organization has an associated **private / public key pair**. This p
 
 ### Data stored on the server
 
-For each client organization, the server stores a list of usernames, user salts and encrypted private key shares. It also stores the public key of the organization.
+For each client organization, the server stores :
+- A list of usernames, user salts and encrypted private key shares
+- The public key of the organization.
 
 ![](readme-images/Storage%20root%20key%20shares.drawio.png)
 

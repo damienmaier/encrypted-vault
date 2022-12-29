@@ -6,18 +6,18 @@ All communications between the client and the server are done using an HTTPS API
 
 As the client organization must be able to access the vault from any device, the server uses a certificate issued by a recognized certificate authority.
 
-| Action                  | Data sent with the request                                                  | Data sent with the response                                                       | Authentication token required | Restriction                                                      |
-|-------------------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------|
-| Client account creation | Organization name, user names, encrypted private key shares, public key     |                                                                                   | no                            |                                                                  |
-| Unlock vault            | Organization name, 2 user names                                             | 2 encrypted private key shares, encrypted token, public keys of all organizations | no                            |                                                                  |
-| Revoke user             | User name                                                                   |                                                                                   | yes                           | At least 2 users must remain after the revocation                |
-| New document            | Encrypted document key, encrypted document name, encrypted document content |                                                                                   | yes                           |                                                                  |
-| List documents          |                                                                             | Document IDs, encrypted document keys, encrypted document names                   | yes                           |                                                                  |
-| Get document key        | Document ID                                                                 | Encrypted document key                                                            | yes                           | The client associated to the token must be owner of the document |
-| Download document       | Document ID                                                                 | Encrypted document name and content                                               | yes                           | The client associated to the token must be owner of the document |
-| Update document         | Document ID, encrypted document name, encrypted document content            |                                                                                   | yes                           | The client associated to the token must be owner of the document |
-| Delete document         | Document ID                                                                 |                                                                                   | yes                           | The client associated to the token must be owner of the document |
-| Add owner               | Document ID, other organization name, encrypted document key                |                                                                                   | yes                           | The client associated to the token must be owner of the document |
+| Action                  | Data sent with the request                                                  | Data sent with the response                                                                | Authentication token required | Restriction                                                      |
+|-------------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------|
+| Client account creation | Organization name, user names, encrypted private key shares, public key     |                                                                                            | no                            |                                                                  |
+| Unlock vault            | Organization name, 2 user names                                             | 2 encrypted private key shares, 2 salts, encrypted token, public keys of all organizations | no                            |                                                                  |
+| Revoke user             | User name                                                                   |                                                                                            | yes                           | At least 2 users must remain after the revocation                |
+| New document            | Encrypted document key, encrypted document name, encrypted document content |                                                                                            | yes                           |                                                                  |
+| List documents          |                                                                             | Document IDs, encrypted document keys, encrypted document names                            | yes                           |                                                                  |
+| Get document key        | Document ID                                                                 | Encrypted document key                                                                     | yes                           | The client associated to the token must be owner of the document |
+| Download document       | Document ID                                                                 | Encrypted document name and content                                                        | yes                           | The client associated to the token must be owner of the document |
+| Update document         | Document ID, encrypted document name, encrypted document content            |                                                                                            | yes                           | The client associated to the token must be owner of the document |
+| Delete document         | Document ID                                                                 |                                                                                            | yes                           | The client associated to the token must be owner of the document |
+| Add owner               | Document ID, other organization name, encrypted document key                |                                                                                            | yes                           | The client associated to the token must be owner of the document |
 
 ## Client organization public / private key pair
 
@@ -25,7 +25,7 @@ Each client organization has an associated **private / public key pair**. This p
 
 ### Data stored on the server
 
-For each client organization, the server stores a list of usernames and encrypted private key shares. It also stores the public key of the organization.
+For each client organization, the server stores a list of usernames, user salts and encrypted private key shares. It also stores the public key of the organization.
 
 ![](readme-images/Storage%20root%20key%20shares.drawio.png)
 
@@ -34,19 +34,20 @@ For each client organization, the server stores a list of usernames and encrypte
 When a client organization is created, the following process takes place :
 
 - All users of the client organization provide their username and password to the client software.
-- The client software applies the **Argon2** algorithm on each password to obtain the symmetric **user derived keys**.
+- The client software chooses a random **salt** for each user.
+- The client software applies the **Argon2** algorithm on each password and salt to obtain the symmetric **user derived keys**.
 - The client software generates a public / private key pair for the organization.
 - The client software uses the **shamir secret sharing** algorithm to generate one **private key share** for each user, where 2 shares are enough to recover the private key.
 - The client software encrypts each share with the corresponding user derived key.
-- The client software stores the encrypted shares, the associated usernames and the public key on the server.
+- The client software stores the encrypted shares, the saluts, the associated usernames and the public key on the server.
 
 ### Public / private key retrieving
 
 To retrieve the key pair, the client follows the following process :
 
-- Two users provide their username and password to the client software.
-- The client software obtains the two **user derived keys** by applying the Argon2 algorithm on each password.
-- The client software gets the two **encrypted private key shares** associated to both users and the **public key** from the server.
+- The client organization name and two usernames and passwords are provided to the client software.
+- The client software gets the two **encrypted private key shares** and **salts** associated to both users and the **public key** from the server.
+- The client software obtains the two **user derived keys** by applying the Argon2 algorithm on each password and salt.
 - The client software performs decryption using the user derived keys, and obtains the two **private key shares**.
 - The client software uses the shamir secret sharing algorithm to obtain the **private key**.
 

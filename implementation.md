@@ -42,7 +42,7 @@ A dotted arrow between a key and some data means that the data is encrypted and 
 
 ## Client organization public / private key pair
 
-Each client organization has an associated **private / public key pair**. This pair of keys is what allows the client to encrypt and decrypt the data stored on the server. Retrieving the public / private key pair is the first thing the client does when he accesses the vault.
+Each client organization has an associated **private / public key pair**. This pair of keys is what allows the client to encrypt and decrypt the documents. Retrieving the public / private key pair is the first thing the client does when he accesses the vault.
 
 ### Data stored on the server
 

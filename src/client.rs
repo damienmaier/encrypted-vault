@@ -32,9 +32,9 @@ impl UnlockedVault {
     }
 
     fn get_document_name(&self, encrypted_name: &SymEncryptedData, encrypted_document_key: &dryocbox::VecBox)
-                         -> Vec<u8> {
+                         -> String {
         let document_key = self.decrypt_document_key(encrypted_document_key);
-        encrypted_name.decrypt(&document_key)
+        String::from_utf8(encrypted_name.decrypt(&document_key)).unwrap()
     }
 
     fn get_document(&self, encrypted_document: &EncryptedDocument, encrypted_document_key: &dryocbox::VecBox)
@@ -65,8 +65,8 @@ mod tests {
 
     fn test_document1() -> Document {
         Document {
-            name: String::from("test document name").into_bytes(),
-            content: String::from("test document content").into_bytes(),
+            name: String::from("test document name"),
+            content: String::from("test document content"),
         }
     }
 

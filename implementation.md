@@ -78,7 +78,7 @@ To retrieve the key pair, the client follows the following process :
 
 ### User revocation
 
-To revoke a user, the client software deletes the user's encrypted private key share from the server.
+To revoke a user, the client software requests the server to delete the user's encrypted private key.
 
 ## Authentication token
 

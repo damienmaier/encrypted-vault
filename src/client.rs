@@ -1,10 +1,11 @@
 use dryoc::{dryocbox, dryocsecretbox};
 use dryoc::dryocbox::DryocBox;
 use dryoc::dryocsecretbox::NewByteArray;
-use crate::symmetric_encryption_helper::SymEncryptedData;
+
 use crate::data::Document;
 use crate::data::EncryptedDocument;
-
+use crate::symmetric_encryption_helper::SymEncryptedData;
+use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
 
 struct UnlockedVault {
     key_pair: dryocbox::KeyPair,
@@ -15,11 +16,10 @@ impl UnlockedVault {
         Self { key_pair }
     }
 
-    fn decrypt_document_key(&self, encrypted_key: &dryocbox::VecBox) -> dryocsecretbox::Key{
+    fn decrypt_document_key(&self, encrypted_key: &dryocbox::VecBox) -> dryocsecretbox::Key {
         let symmetric_key_vec = encrypted_key.unseal_to_vec(&self.key_pair).unwrap();
 
-        let symmetric_key_array: [u8; 32] = symmetric_key_vec.try_into().unwrap();
-        symmetric_key_array.into()
+        <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(symmetric_key_vec).unwrap().into()
     }
 
 

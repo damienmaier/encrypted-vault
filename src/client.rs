@@ -29,7 +29,8 @@ impl AuthenticatedClient {
             .iter()
             .filter(|(.., EncryptedDataEncryptedKey { data: encrypted_name, key })|
                 self.get_document_name(encrypted_name, key) == name)
-            .map(|(&id, ..)| id)
+            .map(|(id, ..)| id)
+            .cloned()
             .next()
     }
 

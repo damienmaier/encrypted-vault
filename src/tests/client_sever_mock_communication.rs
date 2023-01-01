@@ -57,7 +57,7 @@ pub(super) fn download_from_document_name(document_name: &str, client: &Authenti
 
 pub(super) fn update(document_id: &DocumentID, new_document: &Document, client: &AuthenticatedClient, server: &Server)
                      -> Option<()> {
-    let document_key = server.get_document_key(&client.token, &document_id).unwrap();
+    let document_key = server.get_document_key(&client.token, &document_id)?;
     let new_document_encrypted = client.update_document(new_document, &document_key);
     server.update_document(&client.token, &document_id, &new_document_encrypted)
 }

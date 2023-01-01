@@ -265,7 +265,7 @@ mod tests {
     fn delete_document_wrong_token() {
         let (server, clients) = set_up_server_with_organizations_and_documents();
 
-        let deleted_document_id = get_id_of_document_by_name("aperture science star wars shared", &clients[0], &server)
+        let deleted_document_id = get_id_of_document_by_name("aperture science 1", &clients[0], &server)
             .unwrap();
         assert_eq!(None, server.delete_document(&clients[1].token, &deleted_document_id));
 

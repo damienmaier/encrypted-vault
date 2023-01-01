@@ -48,7 +48,8 @@ pub(crate) struct UserShare {
 }
 
 
-pub type DocumentID = [u8; 32];
+pub type DocumentID = Vec<u8>;
+pub const DOCUMENT_ID_LENGTH_BYTES: usize = 32;
 
 pub type Token = Vec<u8>;
 pub const TOKEN_LENGTH_BYTES: usize = 32;

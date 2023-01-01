@@ -6,12 +6,13 @@ use dryoc::dryocsecretbox;
 use dryoc::pwhash;
 use dryoc::pwhash::VecPwHash;
 use sharks;
+use crate::client::AuthenticatedClient;
 
-use crate::data::UserShare;
+use crate::data::{Token, UserShare};
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
 
-struct PrivateKeyProtection {
+pub struct PrivateKeyProtection {
     argon2_config: pwhash::Config,
 }
 
@@ -19,11 +20,17 @@ const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
 const SALT_LENGT_BYTES: usize = 16;
 
 impl PrivateKeyProtection {
-    fn new() -> Self {
+    pub fn new() -> Self {
         PrivateKeyProtection { argon2_config: pwhash::Config::sensitive().with_salt_length(SYMMETRIC_KEY_LENGHT_BYTES) }
     }
 
-    fn create_protected_key_pair(&self, user_credentials: &HashMap<String, String>)
+    pub fn new_unsafe() -> Self{
+        let mut instance = Self::new();
+        instance.argon2_config = instance.argon2_config.with_memlimit(10000).with_opslimit(1);
+        instance
+    }
+
+    pub(crate) fn create_protected_key_pair(&self, user_credentials: &HashMap<String, String>)
                                  -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
         let key_pair = dryocbox::KeyPair::gen();
 
@@ -43,18 +50,21 @@ impl PrivateKeyProtection {
         (user_shares, key_pair.public_key)
     }
 
-    fn retrieve_private_key(
-        &self,
+    pub(crate) fn get_vault_access(
+        &self, encrypted_token: &dryocbox::VecBox, public_key: &dryocbox::PublicKey,
         password1: &str, user_share1: &UserShare,
         password2: &str, user_share2: &UserShare,
     )
-        -> dryocbox::SecretKey {
+        -> AuthenticatedClient {
         let share1 = self.decrypt_share_with_password(user_share1, password1);
         let share2 = self.decrypt_share_with_password(user_share2, password2);
 
         let recovered_secret = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY).recover([&share1, &share2]).unwrap();
+        let private_key: dryocbox::SecretKey = <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(recovered_secret).unwrap().into();
 
-        <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(recovered_secret).unwrap().into()
+        let key_pair = dryocbox::KeyPair { public_key: public_key.clone(), secret_key: private_key};
+        let token = encrypted_token.unseal_to_vec(&key_pair).unwrap();
+        AuthenticatedClient {key_pair, token}
     }
 
     fn get_key_from_password(&self, password: &str, salt: &pwhash::Salt) -> dryocsecretbox::Key {
@@ -90,31 +100,24 @@ mod tests {
         user_credentials.insert(String::from("Wheatley"), String::from("q27jafa;fkds"));
         user_credentials.insert(String::from("Cave"), String::from("783fjasdf"));
 
-        let mut instance = PrivateKeyProtection::new();
-
-        // only for testing, with make Argon2 fast
-        instance.argon2_config = instance.argon2_config.with_memlimit(10000).with_opslimit(1);
+        let mut instance = PrivateKeyProtection::new_unsafe();
 
         let (user_shares, public_key) = instance.create_protected_key_pair(&user_credentials);
 
-        let message = b"The cake is a lie !";
-        let encrypted_message = DryocBox::seal_to_vecbox(&message, &public_key).unwrap();
+        let token = b"The cake is a lie !";
+        let encrypted_token = DryocBox::seal_to_vecbox(&token, &public_key).unwrap();
 
-        let private_key = instance.retrieve_private_key(
+        let vault_acess = instance.get_vault_access(
+            &encrypted_token, &public_key,
             user_credentials.get("Chell").unwrap(),
             user_shares.get("Chell").unwrap(),
             user_credentials.get("Cave").unwrap(),
             user_shares.get("Cave").unwrap(),
         );
 
-        let key_pair = dryocbox::KeyPair {
-            public_key,
-            secret_key: private_key,
-        };
-
         assert_eq!(
-            message.to_vec(),
-            DryocBox::unseal_to_vec(&encrypted_message, &key_pair).unwrap()
+            token.to_vec(),
+            DryocBox::unseal_to_vec(&encrypted_token, &vault_acess.key_pair).unwrap()
         )
     }
 }

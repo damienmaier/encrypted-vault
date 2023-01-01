@@ -1,5 +1,8 @@
+use dryoc::{dryocbox, pwhash};
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::symmetric_encryption_helper::SymEncryptedData;
-use dryoc::pwhash;
 
 #[derive(PartialEq, Debug)]
 pub(crate) struct Document {
@@ -16,6 +19,7 @@ impl Document {
     }
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub(crate) struct EncryptedDocument {
     pub(crate) name: SymEncryptedData,
     pub(crate) content: SymEncryptedData,
@@ -30,7 +34,19 @@ impl EncryptedDocument {
     }
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub(crate) struct EncryptedDataEncryptedKey {
+    pub(crate) data: SymEncryptedData,
+    pub(crate) key: dryocbox::VecBox,
+}
+
+#[derive(PartialEq, Debug)]
 pub(crate) struct UserShare {
     pub(crate) salt: pwhash::Salt,
-    pub(crate) encrypted_private_key_share: SymEncryptedData
+    pub(crate) encrypted_private_key_share: SymEncryptedData,
 }
+
+
+pub type DocumentID = [u8; 32];
+
+pub type Token = Vec<u8>;

@@ -1,19 +1,21 @@
+use std::collections::HashMap;
 use dryoc::{dryocbox, dryocsecretbox};
 use dryoc::dryocbox::DryocBox;
 use dryoc::dryocsecretbox::NewByteArray;
 
-use crate::data::Document;
+use crate::data::{Document, DocumentID, EncryptedDataEncryptedKey, Token};
 use crate::data::EncryptedDocument;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
 
-struct UnlockedVault {
-    key_pair: dryocbox::KeyPair,
+pub(crate) struct AuthenticatedClient {
+    pub(crate) key_pair: dryocbox::KeyPair,
+    pub(crate) token: Token,
 }
 
-impl UnlockedVault {
-    fn new(key_pair: dryocbox::KeyPair) -> Self {
-        Self { key_pair }
+impl AuthenticatedClient {
+    pub(crate) fn new(key_pair: &dryocbox::KeyPair, token: &Token) -> Self {
+        Self { key_pair: key_pair.clone(), token: token.clone() }
     }
 
     fn decrypt_document_key(&self, encrypted_key: &dryocbox::VecBox) -> dryocsecretbox::Key {
@@ -22,37 +24,45 @@ impl UnlockedVault {
         <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(symmetric_key_vec).unwrap().into()
     }
 
+    pub(crate) fn find_document_id_from_name(&self, document_list: &HashMap<DocumentID, EncryptedDataEncryptedKey>, name: &str) -> Option<DocumentID> {
+        document_list
+            .iter()
+            .filter(|(.., EncryptedDataEncryptedKey { data: encrypted_name, key })|
+                self.get_document_name(encrypted_name, key) == name)
+            .map(|(&id, ..)| id)
+            .next()
+    }
 
-    fn new_document(&self, document: &Document)
-                    -> (EncryptedDocument, dryocbox::VecBox) {
+    pub(crate) fn new_document(&self, document: &Document)
+                               -> (EncryptedDocument, dryocbox::VecBox) {
         let document_key = dryocsecretbox::Key::gen();
         let encrypted_document_key = DryocBox::seal_to_vecbox(&document_key, &self.key_pair.public_key).unwrap();
 
         (document.encrypt(&document_key), encrypted_document_key)
     }
 
-    fn get_document_name(&self, encrypted_name: &SymEncryptedData, encrypted_document_key: &dryocbox::VecBox)
-                         -> String {
+    pub(crate) fn get_document_name(&self, encrypted_name: &SymEncryptedData, encrypted_document_key: &dryocbox::VecBox)
+                                    -> String {
         let document_key = self.decrypt_document_key(encrypted_document_key);
         String::from_utf8(encrypted_name.decrypt(&document_key)).unwrap()
     }
 
-    fn get_document(&self, encrypted_document: &EncryptedDocument, encrypted_document_key: &dryocbox::VecBox)
-                    -> Document {
+    pub(crate) fn get_document(&self, encrypted_document: &EncryptedDocument, encrypted_document_key: &dryocbox::VecBox)
+                               -> Document {
         let document_key = self.decrypt_document_key(encrypted_document_key);
 
         encrypted_document.decrypt(&document_key)
     }
 
-    fn update_document(&self, document: &Document, encrypted_document_key: &dryocbox::VecBox)
-                       -> EncryptedDocument {
+    pub(crate) fn update_document(&self, document: &Document, encrypted_document_key: &dryocbox::VecBox)
+                                  -> EncryptedDocument {
         let document_key = self.decrypt_document_key(encrypted_document_key);
         document.encrypt(&document_key)
     }
 
-    fn add_owner(&self, encrypted_document_key: &dryocbox::VecBox,
-                 other_organization_public_key: &dryocbox::PublicKey)
-                 -> dryocbox::VecBox {
+    pub(crate) fn add_owner(&self, encrypted_document_key: &dryocbox::VecBox,
+                            other_organization_public_key: &dryocbox::PublicKey)
+                            -> dryocbox::VecBox {
         let document_key = self.decrypt_document_key(encrypted_document_key);
         DryocBox::seal_to_vecbox(&document_key, other_organization_public_key).unwrap()
     }
@@ -70,8 +80,8 @@ mod tests {
         }
     }
 
-    fn mock_unlocked_vault() -> UnlockedVault {
-        UnlockedVault::new(dryocbox::KeyPair::gen())
+    fn mock_unlocked_vault() -> AuthenticatedClient {
+        AuthenticatedClient::new(&dryocbox::KeyPair::gen(), &Vec::new())
     }
 
     #[test]

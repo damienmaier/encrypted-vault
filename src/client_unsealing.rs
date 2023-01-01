@@ -6,9 +6,9 @@ use dryoc::dryocsecretbox;
 use dryoc::pwhash;
 use dryoc::pwhash::VecPwHash;
 use sharks;
-use crate::client::AuthenticatedClient;
 
-use crate::data::{Token, UserShare};
+use crate::client::AuthenticatedClient;
+use crate::data::UserShare;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
 
@@ -86,7 +86,6 @@ impl PrivateKeyProtection {
 
 #[cfg(test)]
 mod tests {
-    use dryoc::dryocbox;
     use dryoc::dryocbox::DryocBox;
 
     use super::*;
@@ -100,7 +99,7 @@ mod tests {
         user_credentials.insert(String::from("Wheatley"), String::from("q27jafa;fkds"));
         user_credentials.insert(String::from("Cave"), String::from("783fjasdf"));
 
-        let mut instance = PrivateKeyProtection::new_unsafe();
+        let instance = PrivateKeyProtection::new_unsafe();
 
         let (user_shares, public_key) = instance.create_protected_key_pair(&user_credentials);
 

@@ -4,20 +4,14 @@ mod utils;
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::net::ToSocketAddrs;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
 
-    use dryoc::dryocbox;
-    use dryoc::dryocbox::DryocBox;
-    use rand::{Rng, thread_rng};
-    use rand::distributions::Alphanumeric;
 
     use crate::client::AuthenticatedClient;
-    use crate::client_unsealing::PrivateKeyProtection;
-    use crate::data::{DocumentID, Token};
+    use crate::data::DocumentID;
     use crate::Document;
     use crate::server::Server;
-    use crate::tests::client_sever_mock_communication::{create_organization, get_id_of_document_by_name, download_from_document_id, download_from_document_name, share, update, upload, unlock_vault_for_organization};
+    use crate::tests::client_sever_mock_communication::{create_organization, download_from_document_id, download_from_document_name, get_id_of_document_by_name, share, unlock_vault_for_organization, update, upload};
     use crate::tests::utils::random_string;
 
     const TEST_DATA_DIRECTORY_PATH: &str = "test data";
@@ -54,7 +48,7 @@ mod tests {
         server
     }
 
-    fn authenticate_clients_for_server(mut server: & mut Server) -> Vec<AuthenticatedClient> {
+    fn authenticate_clients_for_server(mut server: &mut Server) -> Vec<AuthenticatedClient> {
         vec![
             ("Aperture Science", "Chell", "chellpassword", "Cave", "cavepassword"),
             ("Star Wars", "Luke", "lukepassword", "Leila", "leilapassword"),
@@ -62,13 +56,13 @@ mod tests {
         ]
             .iter()
             .map(|(organization, user1, password1, user2, password2)|
-                unlock_vault_for_organization(& mut server, organization, user1, password1, user2, password2))
+                unlock_vault_for_organization(&mut server, organization, user1, password1, user2, password2))
             .collect()
     }
 
     fn set_up_server_with_organizations_and_documents() -> (Server, Vec<AuthenticatedClient>) {
         let mut server = set_up_server_with_organizations();
-        let clients = authenticate_clients_for_server(& mut server);
+        let clients = authenticate_clients_for_server(&mut server);
 
 
         let document = Document {
@@ -103,13 +97,13 @@ mod tests {
     #[test]
     fn unlock_vault() {
         let mut server = set_up_server_with_organizations();
-        authenticate_clients_for_server(& mut server);
+        authenticate_clients_for_server(&mut server);
     }
 
     #[test]
     fn delete_user() {
         let mut server = set_up_server_with_organizations();
-        let clients = authenticate_clients_for_server(& mut server);
+        let clients = authenticate_clients_for_server(&mut server);
 
         server.revoke_user(&clients[1].token, "Darth Vador").unwrap();
 
@@ -119,12 +113,12 @@ mod tests {
     #[test]
     fn delete_user_wrong_token() {
         let mut server = set_up_server_with_organizations();
-        let clients = authenticate_clients_for_server(& mut server);
+        let clients = authenticate_clients_for_server(&mut server);
 
         assert_eq!(None, server.revoke_user(&clients[2].token, "Darth Vador"));
 
         unlock_vault_for_organization(
-            & mut server, "Star Wars",
+            &mut server, "Star Wars",
             "Darth Vador", "darthvadorpassword",
             "Leila", "leilapassword",
         );
@@ -151,7 +145,7 @@ mod tests {
 
     #[test]
     fn list_documents_wrong_token() {
-        let (server, clients) = set_up_server_with_organizations_and_documents();
+        let (server, ..) = set_up_server_with_organizations_and_documents();
 
         assert_eq!(None, server.list_documents(&Vec::<u8>::new()));
     }

@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
-use serde::{Deserialize, Serialize};
+
+use serde:: Serialize;
 use serde::de::DeserializeOwned;
 
 pub(crate) fn save<T: ?Sized + Serialize>(value: &T, file_path: &Path) -> Option<()> {

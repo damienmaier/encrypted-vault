@@ -17,7 +17,7 @@ mod tests {
     use crate::data::{DocumentID, Token};
     use crate::Document;
     use crate::server::Server;
-    use crate::tests::client_sever_mock_communication::{create_organization, get_id_of_document_by_name, make_client_get_document_from_server, make_client_get_document_from_server_by_name, make_client_share_document, make_client_update_document_on_server, make_client_upload_document_to_server, unlock_vault_for_organization};
+    use crate::tests::client_sever_mock_communication::{create_organization, get_id_of_document_by_name, download_from_document_id, download_from_document_name, share, update, upload, unlock_vault_for_organization};
     use crate::tests::utils::random_string;
 
     const TEST_DATA_DIRECTORY_PATH: &str = "test data";
@@ -75,27 +75,27 @@ mod tests {
             name: "aperture science 1".to_string(),
             content: "aperture science content 1".to_string(),
         };
-        make_client_upload_document_to_server(&document, &clients[0], &server);
+        upload(&document, &clients[0], &server);
 
         let document = Document {
             name: "aperture science 2".to_string(),
             content: "aperture science content 2".to_string(),
         };
-        make_client_upload_document_to_server(&document, &clients[0], &server);
+        upload(&document, &clients[0], &server);
 
         let document = Document {
             name: "aperture science star wars shared".to_string(),
             content: "shared content".to_string(),
         };
-        make_client_upload_document_to_server(&document, &clients[0], &server);
+        upload(&document, &clients[0], &server);
         let document_id = get_id_of_document_by_name("aperture science star wars shared", &clients[0], &server).unwrap();
-        make_client_share_document(&document_id, "Star Wars", &clients[0], &server);
+        share(&document_id, "Star Wars", &clients[0], &server);
 
         let document = Document {
             name: "star wars".to_string(),
             content: "star wars content".to_string(),
         };
-        make_client_upload_document_to_server(&document, &clients[1], &server);
+        upload(&document, &clients[1], &server);
 
         (server, clients)
     }
@@ -167,19 +167,19 @@ mod tests {
     fn get_document() {
         let (server, clients) = set_up_server_with_organizations_and_documents();
 
-        let document1 = make_client_get_document_from_server_by_name("aperture science 1", &clients[0], &server);
+        let document1 = download_from_document_name("aperture science 1", &clients[0], &server);
         assert_eq!(document1, Document { name: "aperture science 1".to_string(), content: "aperture science content 1".to_string() });
 
-        let document2 = make_client_get_document_from_server_by_name("aperture science 2", &clients[0], &server);
+        let document2 = download_from_document_name("aperture science 2", &clients[0], &server);
         assert_eq!(document2, Document { name: "aperture science 2".to_string(), content: "aperture science content 2".to_string() });
 
-        let document3 = make_client_get_document_from_server_by_name("aperture science star wars shared", &clients[0], &server);
+        let document3 = download_from_document_name("aperture science star wars shared", &clients[0], &server);
         assert_eq!(document3, Document { name: "aperture science star wars shared".to_string(), content: "shared content".to_string() });
 
-        let document4 = make_client_get_document_from_server_by_name("aperture science star wars shared", &clients[1], &server);
+        let document4 = download_from_document_name("aperture science star wars shared", &clients[1], &server);
         assert_eq!(document4, Document { name: "aperture science star wars shared".to_string(), content: "shared content".to_string() });
 
-        let document5 = make_client_get_document_from_server_by_name("star wars", &clients[1], &server);
+        let document5 = download_from_document_name("star wars", &clients[1], &server);
         assert_eq!(document5, Document { name: "star wars".to_string(), content: "star wars content".to_string() });
     }
 
@@ -198,9 +198,9 @@ mod tests {
         let document_id = get_id_of_document_by_name("aperture science 1", &clients[0], &server).unwrap();
 
         let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
-        make_client_update_document_on_server(&document_id, &new_document, &clients[0], &server).unwrap();
+        update(&document_id, &new_document, &clients[0], &server).unwrap();
 
-        let downloaded_document = make_client_get_document_from_server(&document_id, &clients[0], &server);
+        let downloaded_document = download_from_document_id(&document_id, &clients[0], &server);
         assert_eq!(new_document, downloaded_document);
     }
 
@@ -211,9 +211,9 @@ mod tests {
         let document_id = get_id_of_document_by_name("aperture science star wars shared", &clients[0], &server).unwrap();
 
         let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
-        make_client_update_document_on_server(&document_id, &new_document, &clients[0], &server).unwrap();
+        update(&document_id, &new_document, &clients[0], &server).unwrap();
 
-        let downloaded_document = make_client_get_document_from_server(&document_id, &clients[1], &server);
+        let downloaded_document = download_from_document_id(&document_id, &clients[1], &server);
         assert_eq!(new_document, downloaded_document);
     }
 
@@ -223,11 +223,11 @@ mod tests {
 
         let document_id = get_id_of_document_by_name("aperture science 1", &clients[0], &server).unwrap();
 
-        let original_document = make_client_get_document_from_server(&document_id, &clients[0], &server);
+        let original_document = download_from_document_id(&document_id, &clients[0], &server);
         let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
-        assert_eq!(None, make_client_update_document_on_server(&document_id, &new_document, &clients[2], &server));
+        assert_eq!(None, update(&document_id, &new_document, &clients[2], &server));
 
-        let downloaded_document = make_client_get_document_from_server(&document_id, &clients[0], &server);
+        let downloaded_document = download_from_document_id(&document_id, &clients[0], &server);
         assert_eq!(original_document, downloaded_document);
     }
 

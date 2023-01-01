@@ -27,20 +27,20 @@ pub(super) fn unlock_vault_for_organization(server: &Server, organization_name: 
         &encrypted_token, &public_key, password1, &user_share1, password2, &user_share2)
 }
 
-pub(super) fn make_client_upload_document_to_server(document: &Document, client: &AuthenticatedClient, server: &Server) -> Option<()> {
+pub(super) fn upload(document: &Document, client: &AuthenticatedClient, server: &Server) -> Option<()> {
     let (encrypted_document, encrypted_key) = client.new_document(document);
     server.new_document(&client.token, &encrypted_document, &encrypted_key)
 }
 
-pub(super) fn make_client_share_document(document_id: &DocumentID, other_organization_name: &str,
-                              client: &AuthenticatedClient, server: &Server) -> Option<()>{
+pub(super) fn share(document_id: &DocumentID, other_organization_name: &str,
+                    client: &AuthenticatedClient, server: &Server) -> Option<()>{
     let encrypted_document_key = server.get_document_key(&client.token, document_id).unwrap();
     let other_organization_public_key = server.get_public_key_of_organization(other_organization_name).unwrap();
     let new_encrypted_document_key = client.add_owner(&encrypted_document_key, &other_organization_public_key);
-    server.add_owner(&client.token, &document_id, other_organization_name, &encrypted_document_key)
+    server.add_owner(&client.token, &document_id, other_organization_name, &new_encrypted_document_key)
 }
 
-pub(super) fn make_client_get_document_from_server(document_id: &DocumentID, client: &AuthenticatedClient, server: &Server) -> Document{
+pub(super) fn download_from_document_id(document_id: &DocumentID, client: &AuthenticatedClient, server: &Server) -> Document{
     let encrypted_document = server.download_document(&client.token, &document_id).unwrap();
     let document_key = server.get_document_key(&client.token, &document_id).unwrap();
     let document = client.get_document(&encrypted_document, &document_key);
@@ -48,15 +48,15 @@ pub(super) fn make_client_get_document_from_server(document_id: &DocumentID, cli
     document
 }
 
-pub(super) fn make_client_get_document_from_server_by_name(document_name: &str, client: &AuthenticatedClient, server: &Server) -> Document {
+pub(super) fn download_from_document_name(document_name: &str, client: &AuthenticatedClient, server: &Server) -> Document {
     let document_list = server.list_documents(&client.token).unwrap();
     let document_id = client.find_document_id_from_name(&document_list, "aperture science 1").unwrap();
 
-    make_client_get_document_from_server(&document_id, &client, &server)
+    download_from_document_id(&document_id, &client, &server)
 }
 
-pub(super) fn make_client_update_document_on_server(document_id: &DocumentID, new_document: &Document, client: &AuthenticatedClient, server: &Server)
-                                         -> Option<()> {
+pub(super) fn update(document_id: &DocumentID, new_document: &Document, client: &AuthenticatedClient, server: &Server)
+                     -> Option<()> {
     let document_key = server.get_document_key(&client.token, &document_id).unwrap();
     let new_document_encrypted = client.update_document(new_document, &document_key);
     server.update_document(&client.token, &document_id, &new_document_encrypted)

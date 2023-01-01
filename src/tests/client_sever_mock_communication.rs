@@ -15,7 +15,7 @@ pub(super) fn create_organization(server: &Server, organization_name: &str, user
     server.create_organization(organization_name, &user_encrypted_shares, &public_key).unwrap();
 }
 
-pub(super) fn unlock_vault_for_organization(server: &Server, organization_name: &str,
+pub(super) fn unlock_vault_for_organization(server: &mut Server, organization_name: &str,
                                  username1: &str, password1: &str,
                                  username2: &str, password2: &str)
                                  -> AuthenticatedClient {
@@ -50,7 +50,7 @@ pub(super) fn download_from_document_id(document_id: &DocumentID, client: &Authe
 
 pub(super) fn download_from_document_name(document_name: &str, client: &AuthenticatedClient, server: &Server) -> Document {
     let document_list = server.list_documents(&client.token).unwrap();
-    let document_id = client.find_document_id_from_name(&document_list, "aperture science 1").unwrap();
+    let document_id = client.find_document_id_from_name(&document_list, document_name).unwrap();
 
     download_from_document_id(&document_id, &client, &server)
 }

@@ -17,7 +17,7 @@ pub struct PrivateKeyProtection {
 }
 
 const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
-const SALT_LENGT_BYTES: usize = 16;
+const SALT_LENGTH_BYTES: usize = 16;
 
 impl PrivateKeyProtection {
     pub fn new() -> Self {
@@ -39,7 +39,7 @@ impl PrivateKeyProtection {
 
         let mut user_shares = HashMap::new();
         for ((name, password), share) in zip(user_credentials, shares) {
-            let salt = rng::randombytes_buf(SALT_LENGT_BYTES);
+            let salt = rng::randombytes_buf(SALT_LENGTH_BYTES);
 
             let user_key = self.get_key_from_password(password, &salt);
             let encrypted_private_key_share = SymEncryptedData::encrypt(&Vec::from(&share), &user_key);

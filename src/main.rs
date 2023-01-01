@@ -8,6 +8,7 @@ mod symmetric_encryption_helper;
 mod data;
 mod server;
 mod tests;
+mod serde_json_disk;
 
 
 fn main() {

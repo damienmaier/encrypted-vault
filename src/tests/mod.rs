@@ -29,7 +29,7 @@ mod tests {
 
         let mut as_user_credentials = HashMap::new();
         as_user_credentials.insert("Glados".to_string(), "gladospassword".to_string());
-        as_user_credentials.insert("Chell".to_string(), "chellpassword;".to_string());
+        as_user_credentials.insert("Chell".to_string(), "chellpassword".to_string());
         as_user_credentials.insert("Wheatley".to_string(), "weathleypassword".to_string());
         as_user_credentials.insert("Cave".to_string(), "cavepassword".to_string());
 
@@ -54,7 +54,7 @@ mod tests {
         server
     }
 
-    fn authenticate_clients_for_server(server: &Server) -> Vec<AuthenticatedClient> {
+    fn authenticate_clients_for_server(mut server: & mut Server) -> Vec<AuthenticatedClient> {
         vec![
             ("Aperture Science", "Chell", "chellpassword", "Cave", "cavepassword"),
             ("Star Wars", "Luke", "lukepassword", "Leila", "leilapassword"),
@@ -62,13 +62,13 @@ mod tests {
         ]
             .iter()
             .map(|(organization, user1, password1, user2, password2)|
-                unlock_vault_for_organization(&server, organization, user1, password1, user2, password2))
+                unlock_vault_for_organization(& mut server, organization, user1, password1, user2, password2))
             .collect()
     }
 
     fn set_up_server_with_organizations_and_documents() -> (Server, Vec<AuthenticatedClient>) {
-        let server = set_up_server_with_organizations();
-        let clients = authenticate_clients_for_server(&server);
+        let mut server = set_up_server_with_organizations();
+        let clients = authenticate_clients_for_server(& mut server);
 
 
         let document = Document {
@@ -102,14 +102,14 @@ mod tests {
 
     #[test]
     fn unlock_vault() {
-        let server = set_up_server_with_organizations();
-        authenticate_clients_for_server(&server);
+        let mut server = set_up_server_with_organizations();
+        authenticate_clients_for_server(& mut server);
     }
 
     #[test]
     fn delete_user() {
-        let server = set_up_server_with_organizations();
-        let clients = authenticate_clients_for_server(&server);
+        let mut server = set_up_server_with_organizations();
+        let clients = authenticate_clients_for_server(& mut server);
 
         server.revoke_user(&clients[1].token, "Darth Vador").unwrap();
 
@@ -118,13 +118,13 @@ mod tests {
 
     #[test]
     fn delete_user_wrong_token() {
-        let server = set_up_server_with_organizations();
-        let clients = authenticate_clients_for_server(&server);
+        let mut server = set_up_server_with_organizations();
+        let clients = authenticate_clients_for_server(& mut server);
 
         assert_eq!(None, server.revoke_user(&clients[2].token, "Darth Vador"));
 
         unlock_vault_for_organization(
-            &server, "Star Wars",
+            & mut server, "Star Wars",
             "Darth Vador", "darthvadorpassword",
             "Leila", "leilapassword",
         );

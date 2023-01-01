@@ -33,6 +33,10 @@ impl Server {
         self.data_path.as_path().join(ORGANIZATIONS_FOLDER_NAME).join(organization_name)
     }
 
+    fn organization_public_key_path(&self, organization_name: &str) -> PathBuf {
+        self.organization_directory(organization_name).join(PUBLIC_KEY_FILE_NAME)
+    }
+
     fn organization_users_directory(&self, organization_name: &str) -> PathBuf {
         self.organization_directory(organization_name).join(USERS_FOLDER_NAME)
     }
@@ -57,7 +61,7 @@ impl Server {
                                -> Option<()>
     {
         let organization = Organization { public_key: public_key.clone(), users_data: users_data.clone() };
-        save(&organization.public_key, &self.organization_directory(organization_name).join(PUBLIC_KEY_FILE_NAME));
+        save(&organization.public_key, &self.organization_public_key_path(organization_name));
         for (user_name, user_share) in users_data {
             save(user_share, &self.organization_users_directory(organization_name).join(user_name));
         }
@@ -67,7 +71,7 @@ impl Server {
 
     pub fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str)
                         -> Option<(UserShare, UserShare, dryocbox::PublicKey, dryocbox::VecBox)> {
-        let public_key: dryocbox::PublicKey = load(&self.organization_directory(organization_name).join(PUBLIC_KEY_FILE_NAME))?;
+        let public_key: dryocbox::PublicKey = load(&self.organization_public_key_path(organization_name))?;
 
         let user_share1: UserShare = load(&self.organization_users_directory(organization_name).join(user_name1))?;
         let user_share2: UserShare = load(&self.organization_users_directory(organization_name).join(user_name2))?;
@@ -150,7 +154,7 @@ impl Server {
     }
 
     pub fn get_public_key_of_organization(&self, organization_name: &str) -> Option<dryocbox::PublicKey> {
-        load(&self.organization_directory(organization_name).join(PUBLIC_KEY_FILE_NAME))
+        load(&self.organization_public_key_path(organization_name))
     }
 
     pub fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &dryocbox::VecBox)

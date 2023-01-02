@@ -2,13 +2,14 @@ use std::fs;
 use dryoc::dryocsecretbox::NewByteArray;
 use crate::data::{Document, EncryptedDocument};
 
-mod client_encryptor_decryptor;
+mod encryptor_decryptor;
 mod client_unsealing;
 mod symmetric_encryption_helper;
 mod data;
-mod server;
+mod local_server;
 mod tests;
 mod serde_json_disk;
+mod server;
 
 
 fn main() {

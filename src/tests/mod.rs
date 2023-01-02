@@ -7,9 +7,10 @@ mod tests {
     use std::path::Path;
 
 
-    use crate::client_encryptor_decryptor::ClientEncryptorDecryptor;
+    use crate::encryptor_decryptor::ClientEncryptorDecryptor;
     use crate::data::{DocumentID, Token};
     use crate::Document;
+    use crate::local_server::LocalServer;
     use crate::server::Server;
     use crate::tests::client_sever_mock_communication::{create_organization, download_from_document_id, download_from_document_name, get_id_of_document_by_name, share, unlock_vault_for_organization, update, upload};
     use crate::tests::utils::random_string;
@@ -17,9 +18,9 @@ mod tests {
     const TEST_DATA_DIRECTORY_PATH: &str = "test data";
 
 
-    fn set_up_server_with_organizations() -> Server {
+    fn set_up_server_with_organizations() -> LocalServer {
         // As multiple client_server_tests are run in parallel, use a root folder with a random name to avoid collisions
-        let server = Server::new(&Path::new(TEST_DATA_DIRECTORY_PATH).join(random_string(30)));
+        let server = LocalServer::new(&Path::new(TEST_DATA_DIRECTORY_PATH).join(random_string(30)));
 
         let mut as_user_credentials = HashMap::new();
         as_user_credentials.insert("Glados".to_string(), "gladospassword".to_string());
@@ -48,7 +49,7 @@ mod tests {
         server
     }
 
-    fn authenticate_clients_for_server(mut server: &mut Server) -> (Vec<ClientEncryptorDecryptor>, Vec<Token>) {
+    fn authenticate_clients_for_server(mut server: &mut LocalServer) -> (Vec<ClientEncryptorDecryptor>, Vec<Token>) {
         vec![
             ("Aperture Science", "Chell", "chellpassword", "Cave", "cavepassword"),
             ("Star Wars", "Luke", "lukepassword", "Leila", "leilapassword"),
@@ -60,7 +61,7 @@ mod tests {
             .unzip()
     }
 
-    fn set_up_server_with_organizations_and_documents() -> (Server, Vec<ClientEncryptorDecryptor>, Vec<Token>) {
+    fn set_up_server_with_organizations_and_documents() -> (LocalServer, Vec<ClientEncryptorDecryptor>, Vec<Token>) {
         let mut server = set_up_server_with_organizations();
         let (clients, tokens) = authenticate_clients_for_server(&mut server);
 
@@ -184,7 +185,7 @@ mod tests {
 
         let id_of_document_not_owned_by_organization_2 =
             get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server).unwrap();
-        assert_eq!(None, server.download_document(&tokens[2], &id_of_document_not_owned_by_organization_2));
+        assert_eq!(None, server.get_document(&tokens[2], &id_of_document_not_owned_by_organization_2));
     }
 
     #[test]
@@ -240,7 +241,7 @@ mod tests {
         let document_ids: Vec<DocumentID> = documents_list.keys().cloned().collect();
         assert!(!document_ids.contains(&deleted_document_id));
 
-        assert_eq!(None, server.download_document(&tokens[0], &deleted_document_id));
+        assert_eq!(None, server.get_document(&tokens[0], &deleted_document_id));
     }
 
     #[test]
@@ -256,7 +257,7 @@ mod tests {
         let document_ids: Vec<DocumentID> = documents_list.keys().cloned().collect();
         assert!(document_ids.contains(&deleted_document_id));
 
-        server.download_document(&tokens[1], &deleted_document_id).unwrap();
+        server.get_document(&tokens[1], &deleted_document_id).unwrap();
     }
 
     #[test]
@@ -271,6 +272,6 @@ mod tests {
         let document_ids: Vec<DocumentID> = documents_list.keys().cloned().collect();
         assert!(document_ids.contains(&deleted_document_id));
 
-        server.download_document(&tokens[0], &deleted_document_id).unwrap();
+        server.get_document(&tokens[0], &deleted_document_id).unwrap();
     }
 }

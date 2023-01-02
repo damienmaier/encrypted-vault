@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use dryoc::dryocbox;
-use crate::data::{DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
-use crate::EncryptedDocument;
+use crate::data::{DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare, EncryptedDocument};
 
 pub trait Server {
     fn create_organization(&self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)

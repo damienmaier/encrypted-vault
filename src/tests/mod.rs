@@ -7,11 +7,10 @@ mod tests {
     use std::path::Path;
 
 
-    use crate::encryptor_decryptor::ClientEncryptorDecryptor;
-    use crate::data::{DocumentID, Token};
-    use crate::Document;
-    use crate::local_server::LocalServer;
-    use crate::server::Server;
+    use crate::client::encryptor_decryptor::ClientEncryptorDecryptor;
+    use crate::data::{DocumentID, Token, Document};
+    use crate::server::local_server::LocalServer;
+    use crate::server_connection::Server;
     use crate::tests::client_sever_mock_communication::{create_organization, download_from_document_id, download_from_document_name, get_id_of_document_by_name, share, unlock_vault_for_organization, update, upload};
     use crate::tests::utils::random_string;
 

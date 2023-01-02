@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use dryoc::dryocbox;
-use crate::encryptor_decryptor::ClientEncryptorDecryptor;
-use crate::client_unsealing::{create_protected_key_pair_unsafe, retrieve_private_key_unsafe};
-use crate::data::{DocumentID, Token};
-use crate::Document;
-use crate::local_server::LocalServer;
-use crate::server::Server;
+use crate::client::encryptor_decryptor::ClientEncryptorDecryptor;
+use crate::client::key_pair::{create_protected_key_pair_unsafe, retrieve_private_key_unsafe};
+use crate::data::{DocumentID, Token, Document};
+use crate::server::local_server::LocalServer;
+use crate::server_connection::Server;
 
 
 pub(super) fn create_organization(server: &LocalServer, organization_name: &str, user_credentials: &HashMap<String, String>) {

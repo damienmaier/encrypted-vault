@@ -8,9 +8,9 @@ use dryoc::{dryocbox, rng};
 use dryoc::dryocbox::DryocBox;
 
 use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Organization, Token, TOKEN_LENGTH_BYTES, UserShare};
-use crate::EncryptedDocument;
-use crate::serde_json_disk::{load, save};
-use crate::server::Server;
+use crate::data::EncryptedDocument;
+use crate::server::serde_json_disk::{load, save};
+use crate::server_connection::Server;
 
 pub struct LocalServer {
     data_path: PathBuf,

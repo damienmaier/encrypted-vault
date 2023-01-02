@@ -7,11 +7,11 @@ use data_encoding::BASE32;
 use dryoc::{dryocbox, rng};
 use dryoc::dryocbox::DryocBox;
 
-use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDataEncryptedKey, Organization, Token, TOKEN_LENGTH_BYTES, UserShare};
+use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Organization, Token, TOKEN_LENGTH_BYTES, UserShare};
 use crate::EncryptedDocument;
 use crate::serde_json_disk::{load, save};
 
-pub(crate) struct Server {
+pub struct Server {
     data_path: PathBuf,
     tokens: HashMap<Token, String>,
 }
@@ -64,7 +64,7 @@ impl Server {
     }
 
     pub fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str)
-                        -> Option<(UserShare, UserShare, dryocbox::PublicKey, dryocbox::VecBox)> {
+                        -> Option<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)> {
         let public_key: dryocbox::PublicKey = load(&self.organization_public_key_path(organization_name))?;
 
         let user_share1: UserShare = load(&self.organization_users_directory(organization_name, user_name1))?;
@@ -82,7 +82,7 @@ impl Server {
         fs::remove_file(&self.organization_users_directory(organization_name,user_name)).ok()
     }
 
-    pub fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &dryocbox::VecBox)
+    pub fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
                         -> Option<()> {
         let organization_name = self.tokens.get(token)?;
         let document_id = rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES);
@@ -93,19 +93,19 @@ impl Server {
         Some(())
     }
 
-    pub fn list_documents(&self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDataEncryptedKey>> {
+    pub fn list_documents(&self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDocumentNameAndKey>> {
         let organization_name = self.tokens.get(token)?;
 
-        let build_data = |dir_entry: DirEntry| -> (DocumentID, EncryptedDataEncryptedKey) {
+        let build_data = |dir_entry: DirEntry| -> (DocumentID, EncryptedDocumentNameAndKey) {
             let document_id_os_str = dir_entry.file_name();
             let document_id = BASE32.decode(document_id_os_str.to_str().unwrap().as_bytes()).unwrap();
             let encrypted_document: EncryptedDocument = load(&self.document_path(&document_id)).unwrap();
             let encrypted_key = load(&self.organization_document_key_path(organization_name, &document_id)).unwrap();
 
-            (document_id, EncryptedDataEncryptedKey { data: encrypted_document.name, key: encrypted_key })
+            (document_id, EncryptedDocumentNameAndKey { data: encrypted_document.name, key: encrypted_key })
         };
 
-        let documents_list: HashMap<DocumentID, EncryptedDataEncryptedKey> =
+        let documents_list: HashMap<DocumentID, EncryptedDocumentNameAndKey> =
             fs::read_dir(self.organization_document_keys_directory(organization_name)).ok()?
                 .map(|x| x.unwrap())
                 .filter(|dir_entry| dir_entry.file_type().unwrap().is_file())
@@ -115,7 +115,7 @@ impl Server {
         Some(documents_list)
     }
 
-    pub fn get_document_key(&self, token: &Token, document_id: &DocumentID) -> Option<dryocbox::VecBox> {
+    pub fn get_document_key(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
         let organization_name = self.tokens.get(token)?;
         load(&self.organization_document_key_path(organization_name, &document_id))
 
@@ -151,7 +151,7 @@ impl Server {
         load(&self.organization_public_key_path(organization_name))
     }
 
-    pub fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &dryocbox::VecBox)
+    pub fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
                      -> Option<()> {
         if self.is_client_owner_of_document(&token, &document_id)? {
             save(&encrypted_document_key, &self.organization_document_key_path(other_organization_name, &document_id))

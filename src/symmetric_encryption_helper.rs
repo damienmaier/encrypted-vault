@@ -12,7 +12,7 @@ pub struct SymEncryptedData {
 }
 
 impl SymEncryptedData {
-    pub(crate) fn encrypt(message: &[u8], key: &dryocsecretbox::Key) -> Self {
+    pub fn encrypt(message: &[u8], key: &dryocsecretbox::Key) -> Self {
         let nonce = dryocsecretbox::Nonce::gen();
 
         Self {
@@ -21,7 +21,7 @@ impl SymEncryptedData {
         }
     }
 
-    pub(crate) fn decrypt(&self, key: &dryocsecretbox::Key) -> Vec<u8> {
+    pub fn decrypt(&self, key: &dryocsecretbox::Key) -> Vec<u8> {
         self.secret_box.decrypt_to_vec(&self.nonce, key).unwrap()
     }
 }

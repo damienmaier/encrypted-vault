@@ -7,8 +7,8 @@ use dryoc::pwhash;
 use dryoc::pwhash::VecPwHash;
 use sharks;
 
-use crate::client::AuthenticatedClient;
-use crate::data::UserShare;
+use crate::client::ClientEncryptorDecryptor;
+use crate::data::{EncryptedToken, Token, UserShare};
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
 
@@ -30,7 +30,7 @@ impl PrivateKeyProtection {
         instance
     }
 
-    pub(crate) fn create_protected_key_pair(&self, user_credentials: &HashMap<String, String>)
+    pub fn create_protected_key_pair(&self, user_credentials: &HashMap<String, String>)
                                  -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
         let key_pair = dryocbox::KeyPair::gen();
 
@@ -50,12 +50,12 @@ impl PrivateKeyProtection {
         (user_shares, key_pair.public_key)
     }
 
-    pub(crate) fn get_vault_access(
-        &self, encrypted_token: &dryocbox::VecBox, public_key: &dryocbox::PublicKey,
+    pub fn get_vault_access(
+        &self, encrypted_token: &EncryptedToken, public_key: &dryocbox::PublicKey,
         password1: &str, user_share1: &UserShare,
         password2: &str, user_share2: &UserShare,
     )
-        -> AuthenticatedClient {
+        -> (ClientEncryptorDecryptor, Token) {
         let share1 = self.decrypt_share_with_password(user_share1, password1);
         let share2 = self.decrypt_share_with_password(user_share2, password2);
 
@@ -64,7 +64,7 @@ impl PrivateKeyProtection {
 
         let key_pair = dryocbox::KeyPair { public_key: public_key.clone(), secret_key: private_key};
         let token = encrypted_token.unseal_to_vec(&key_pair).unwrap();
-        AuthenticatedClient {key_pair, token}
+        (ClientEncryptorDecryptor {key_pair}, token)
     }
 
     fn get_key_from_password(&self, password: &str, salt: &pwhash::Salt) -> dryocsecretbox::Key {
@@ -106,7 +106,7 @@ mod tests {
         let token = b"The cake is a lie !";
         let encrypted_token = DryocBox::seal_to_vecbox(&token, &public_key).unwrap();
 
-        let vault_acess = instance.get_vault_access(
+        let (encryptor_decryptor, ..) = instance.get_vault_access(
             &encrypted_token, &public_key,
             user_credentials.get("Chell").unwrap(),
             user_shares.get("Chell").unwrap(),
@@ -116,7 +116,7 @@ mod tests {
 
         assert_eq!(
             token.to_vec(),
-            DryocBox::unseal_to_vec(&encrypted_token, &vault_acess.key_pair).unwrap()
+            DryocBox::unseal_to_vec(&encrypted_token, &encryptor_decryptor.key_pair).unwrap()
         )
     }
 }

@@ -16,19 +16,23 @@ const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
 const SALT_LENGTH_BYTES: usize = 16;
 
 
-fn argon_config() -> pwhash::Config {
+
+pub fn argon_config() -> pwhash::Config {
+
     pwhash::Config::sensitive().with_salt_length(SYMMETRIC_KEY_LENGHT_BYTES)
 }
 
 
-pub fn create_protected_key_pair(user_credentials: &HashMap<String, String>)
-                                 -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
-    create_protected_key_pair_using_config(user_credentials, &argon_config())
+// This config makes Argon hashing fast
+// This is totally unsafe and must not be used in production
+// This config is used when testing, because otherwise tests would take far too much time
+pub fn argon_unsafe_config() -> pwhash::Config {
+    argon_config().with_memlimit(10000).with_opslimit(1)
 }
 
-fn create_protected_key_pair_using_config(user_credentials: &HashMap<String, String>,
-                                          argon_config: &pwhash::Config)
-                                          -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
+pub fn create_protected_key_pair(user_credentials: &HashMap<String, String>,
+                                 argon_config: &pwhash::Config)
+                                 -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
     let key_pair = dryocbox::KeyPair::gen();
 
     let shares = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY)
@@ -48,14 +52,6 @@ fn create_protected_key_pair_using_config(user_credentials: &HashMap<String, Str
 }
 
 pub fn retrieve_private_key(
-    password1: &str, user_share1: &UserShare,
-    password2: &str, user_share2: &UserShare,
-)
-    -> dryocbox::SecretKey {
-    retrieve_private_key_using_config(password1, user_share1, password2, user_share2, &argon_config())
-}
-
-fn retrieve_private_key_using_config(
     password1: &str, user_share1: &UserShare, password2: &str, user_share2: &UserShare,
     argon_config: &pwhash::Config)
     -> dryocbox::SecretKey {
@@ -83,25 +79,6 @@ fn decrypt_share_with_password(share: &UserShare, password: &str, argon_config: 
 }
 
 
-// Functions bellow allow to make Argon hashing fast
-// This is totally unsafe and must not be used in production
-// Those functions are used when testing, because otherwise tests would take far too much time
-fn argon_unsafe_config() -> pwhash::Config {
-    argon_config().with_memlimit(10000).with_opslimit(1)
-}
-
-pub fn create_protected_key_pair_unsafe(user_credentials: &HashMap<String, String>)
-                                        -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
-    create_protected_key_pair_using_config(user_credentials, &argon_unsafe_config())
-}
-
-pub fn retrieve_private_key_unsafe(
-    password1: &str, user_share1: &UserShare,
-    password2: &str, user_share2: &UserShare,
-)
-    -> dryocbox::SecretKey {
-    retrieve_private_key_using_config(password1, user_share1, password2, user_share2, &argon_unsafe_config())
-}
 
 
 #[cfg(test)]
@@ -120,16 +97,17 @@ mod tests {
         user_credentials.insert(String::from("Cave"), String::from("783fjasdf"));
 
 
-        let (user_shares, public_key) = create_protected_key_pair_unsafe(&user_credentials);
+        let (user_shares, public_key) = create_protected_key_pair(&user_credentials, &argon_unsafe_config());
 
         let message = b"The cake is a lie !";
         let encrypted_token = DryocBox::seal_to_vecbox(&message, &public_key).unwrap();
 
-        let secret_key = retrieve_private_key_unsafe(
+        let secret_key = retrieve_private_key(
             user_credentials.get("Chell").unwrap(),
             user_shares.get("Chell").unwrap(),
             user_credentials.get("Cave").unwrap(),
             user_shares.get("Cave").unwrap(),
+            &argon_unsafe_config()
         );
 
         assert_eq!(

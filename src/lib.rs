@@ -1,6 +1,5 @@
 pub mod symmetric_encryption_helper;
 pub mod data;
-pub mod tests;
 pub mod server_connection;
 pub mod client;
 pub mod server;

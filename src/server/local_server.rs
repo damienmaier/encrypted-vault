@@ -10,7 +10,7 @@ use dryoc::dryocbox::DryocBox;
 use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Organization, Token, TOKEN_LENGTH_BYTES, UserShare};
 use crate::data::EncryptedDocument;
 use crate::server::serde_json_disk::{load, save};
-use crate::server_connection::Server;
+use crate::server_connection::ServerConnection;
 
 pub struct LocalServer {
     data_path: PathBuf,
@@ -65,7 +65,7 @@ impl LocalServer {
     }
 }
 
-impl Server for LocalServer{
+impl ServerConnection for LocalServer{
     fn create_organization(&self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)
                                -> Option<()>
     {

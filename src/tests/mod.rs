@@ -7,7 +7,7 @@ mod tests {
     use std::path::Path;
 
 
-    use crate::client::ClientEncryptorDecryptor;
+    use crate::client_encryptor_decryptor::ClientEncryptorDecryptor;
     use crate::data::{DocumentID, Token};
     use crate::Document;
     use crate::server::Server;
@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn delete_user() {
         let mut server = set_up_server_with_organizations();
-        let (clients, tokens) = authenticate_clients_for_server(&mut server);
+        let (.., tokens) = authenticate_clients_for_server(&mut server);
 
         server.revoke_user(&tokens[1], "Darth Vador").unwrap();
 
@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn delete_user_wrong_token() {
         let mut server = set_up_server_with_organizations();
-        let (clients, tokens) = authenticate_clients_for_server(&mut server);
+        let (.., tokens) = authenticate_clients_for_server(&mut server);
 
         assert_eq!(None, server.revoke_user(&tokens[2], "Darth Vador"));
 

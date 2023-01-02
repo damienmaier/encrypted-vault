@@ -3,7 +3,7 @@ use dryoc::{dryocbox, dryocsecretbox};
 use dryoc::dryocbox::DryocBox;
 use dryoc::dryocsecretbox::NewByteArray;
 
-use crate::data::{Document, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, Token};
+use crate::data::{Document, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey};
 use crate::data::EncryptedDocument;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
@@ -18,7 +18,7 @@ impl ClientEncryptorDecryptor {
         document_list
         .iter()
         .filter(|(.., EncryptedDocumentNameAndKey { data: encrypted_name, key })|
-                self.get_document_name(encrypted_name, key) == name)
+                self.decrypt_document_name(encrypted_name, key) == name)
             .map(|(id, ..)| id)
             .cloned()
             .next()
@@ -32,28 +32,28 @@ impl ClientEncryptorDecryptor {
         (document.encrypt(&document_key), encrypted_document_key)
     }
 
-    pub fn get_document_name(&self, encrypted_name: &SymEncryptedData, encrypted_document_key: &EncryptedDocumentKey)
-                                    -> String {
+    pub fn decrypt_document_name(&self, encrypted_name: &SymEncryptedData, encrypted_document_key: &EncryptedDocumentKey)
+                                 -> String {
         let document_key = self.decrypt_document_key(encrypted_document_key);
         String::from_utf8(encrypted_name.decrypt(&document_key)).unwrap()
     }
 
-    pub fn get_document(&self, encrypted_document: &EncryptedDocument, encrypted_document_key: &EncryptedDocumentKey)
-                               -> Document {
+    pub fn decrypt_document(&self, encrypted_document: &EncryptedDocument, encrypted_document_key: &EncryptedDocumentKey)
+                            -> Document {
         let document_key = self.decrypt_document_key(encrypted_document_key);
 
         encrypted_document.decrypt(&document_key)
     }
 
-    pub fn update_document(&self, document: &Document, encrypted_document_key: &EncryptedDocumentKey)
-                                  -> EncryptedDocument {
+    pub fn encrypt_document_with_key(&self, document: &Document, encrypted_document_key: &EncryptedDocumentKey)
+                                     -> EncryptedDocument {
         let document_key = self.decrypt_document_key(encrypted_document_key);
         document.encrypt(&document_key)
     }
 
-    pub fn add_owner(&self, encrypted_document_key: &EncryptedDocumentKey,
-                            other_organization_public_key: &dryocbox::PublicKey)
-                            -> EncryptedDocumentKey {
+    pub fn encrypt_document_key_for_other_organization(&self, encrypted_document_key: &EncryptedDocumentKey,
+                                                       other_organization_public_key: &dryocbox::PublicKey)
+                                                       -> EncryptedDocumentKey {
         let document_key = self.decrypt_document_key(encrypted_document_key);
         DryocBox::seal_to_vecbox(&document_key, other_organization_public_key).unwrap()
     }
@@ -89,7 +89,7 @@ mod tests {
             vault.generate_document_key_and_encrypt_document(&test_document1());
 
         let decrypted_document =
-            vault.get_document(&encrypted_document, &encrypted_key);
+            vault.decrypt_document(&encrypted_document, &encrypted_key);
 
         assert_eq!(decrypted_document, test_document1());
     }
@@ -102,7 +102,7 @@ mod tests {
             vault.generate_document_key_and_encrypt_document(&test_document1());
 
         let decrypted_name =
-            vault.get_document_name(&encrypted_document.name, &encrypted_key);
+            vault.decrypt_document_name(&encrypted_document.name, &encrypted_key);
 
         assert_eq!(decrypted_name, test_document1().name);
     }
@@ -112,8 +112,8 @@ mod tests {
         let vault = mock_unlocked_vault();
 
         let (.., encrypted_key) = vault.generate_document_key_and_encrypt_document(&test_document1());
-        let encrypted_document = vault.update_document(&test_document1(), &encrypted_key);
-        let decrypted_document = vault.get_document(&encrypted_document, &encrypted_key);
+        let encrypted_document = vault.encrypt_document_with_key(&test_document1(), &encrypted_key);
+        let decrypted_document = vault.decrypt_document(&encrypted_document, &encrypted_key);
 
         assert_eq!(decrypted_document, test_document1())
     }
@@ -124,8 +124,8 @@ mod tests {
         let vault2 = mock_unlocked_vault();
 
         let (encrypted_document, encrypted_key) = vault1.generate_document_key_and_encrypt_document(&test_document1());
-        let other_encrypted_key = vault1.add_owner(&encrypted_key, &vault2.key_pair.public_key);
-        let decrypted_document = vault2.get_document(&encrypted_document, &other_encrypted_key);
+        let other_encrypted_key = vault1.encrypt_document_key_for_other_organization(&encrypted_key, &vault2.key_pair.public_key);
+        let decrypted_document = vault2.decrypt_document(&encrypted_document, &other_encrypted_key);
 
         assert_eq!(decrypted_document, test_document1())
     }

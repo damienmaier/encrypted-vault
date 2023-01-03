@@ -48,7 +48,7 @@ pub struct UserShare {
 }
 
 
-pub type DocumentID = Vec<u8>;
+pub type DocumentID = String;
 pub const DOCUMENT_ID_LENGTH_BYTES: usize = 32;
 
 pub type Token = Vec<u8>;

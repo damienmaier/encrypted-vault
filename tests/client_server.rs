@@ -1,18 +1,19 @@
 #[cfg(test)]
 use std::collections::HashMap;
 use std::path::Path;
+use std::thread;
 
 use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
+
 use vault::client::controller::{create_organization_unsafe, download_from_document_id, download_from_document_name, get_id_of_document_by_name, share, unlock_vault_for_organization_unsafe, update, upload};
 use vault::client::encryptor_decryptor::ClientEncryptorDecryptor;
+use vault::client::http_connection::HttpConnection;
 use vault::data::{Document, DocumentID, Token};
-
-use vault::server::local_server::LocalServer;
+use vault::server::http_server::run_http_server;
 use vault::server_connection::ServerConnection;
 
-
-const TEST_DATA_DIRECTORY_PATH: &str = "test data";
+const TEST_DATA_DIRECTORY_PATH: &str = "./test data http";
 
 fn random_string(length: usize) -> String {
     thread_rng()
@@ -23,9 +24,17 @@ fn random_string(length: usize) -> String {
 }
 
 
-fn set_up_server_with_organizations() -> LocalServer {
-    // As multiple client_server_tests are run in parallel, use a root folder with a random name to avoid collisions
-    let server = LocalServer::new(&Path::new(TEST_DATA_DIRECTORY_PATH).join(random_string(30)));
+const FIRST_ALLOWED_TCP_PORT: u16 = 1024;
+const LAST_TCP_PORT: u16 = 65534;
+
+fn set_up_server_with_organizations() -> HttpConnection {
+    // As multiple tests are run in parallel,
+    // we use a random port and a random data folder to avoid collisions
+    let server_vault_data_directory = Path::new(TEST_DATA_DIRECTORY_PATH).join(random_string(30));
+    let server_port = thread_rng().gen_range(FIRST_ALLOWED_TCP_PORT..LAST_TCP_PORT);
+    thread::spawn(move || run_http_server(server_port, server_vault_data_directory));
+
+    let server = HttpConnection::new(server_port);
 
     let mut as_user_credentials = HashMap::new();
     as_user_credentials.insert("Glados".to_string(), "gladospassword".to_string());
@@ -66,7 +75,7 @@ fn authenticate_clients_for_server<A: ServerConnection>(server: &mut A) -> (Vec<
         .unzip()
 }
 
-fn set_up_server_with_organizations_and_documents() -> (LocalServer, Vec<ClientEncryptorDecryptor>, Vec<Token>) {
+fn set_up_server_with_organizations_and_documents() -> (HttpConnection, Vec<ClientEncryptorDecryptor>, Vec<Token>) {
     let mut server = set_up_server_with_organizations();
     let (clients, tokens) = authenticate_clients_for_server(&mut server);
 
@@ -102,12 +111,14 @@ fn set_up_server_with_organizations_and_documents() -> (LocalServer, Vec<ClientE
 
 #[test]
 fn unlock_vault() {
+
     let mut server = set_up_server_with_organizations();
     authenticate_clients_for_server(&mut server);
 }
 
 #[test]
 fn delete_user() {
+
     let mut server = set_up_server_with_organizations();
     let (.., tokens) = authenticate_clients_for_server(&mut server);
 
@@ -118,6 +129,7 @@ fn delete_user() {
 
 #[test]
 fn delete_user_wrong_token() {
+
     let mut server = set_up_server_with_organizations();
     let (.., tokens) = authenticate_clients_for_server(&mut server);
 

@@ -12,6 +12,7 @@ use crate::data::EncryptedDocument;
 use crate::server::serde_json_disk::{load, save};
 use crate::server_connection::ServerConnection;
 
+#[derive(Clone)]
 pub struct LocalServer {
     data_path: PathBuf,
     tokens: HashMap<Token, String>,
@@ -45,22 +46,21 @@ impl LocalServer {
     }
 
     fn organization_document_key_path(&self, organization_name: &str, document_id: &DocumentID) -> PathBuf {
-        self.organization_document_keys_directory(organization_name).join(BASE32.encode(document_id))
+        self.organization_document_keys_directory(organization_name).join(document_id)
     }
 
     fn document_path(&self, document_id: &DocumentID) -> PathBuf {
-        self.data_path.as_path().join(DOCUMENTS_FOLDER_NAME).join(BASE32.encode(document_id))
+        self.data_path.as_path().join(DOCUMENTS_FOLDER_NAME).join(document_id)
     }
 
 
 
     fn is_client_owner_of_document(&self, token: &Token, document_id: &DocumentID) -> Option<bool> {
         let organization_name = self.tokens.get(token)?;
-        let document_id_str = BASE32.encode(document_id);
 
         Some(
             fs::read_dir(self.organization_document_keys_directory(organization_name)).ok()?
-                .any(|x| x.unwrap().file_name().to_str().unwrap() == document_id_str)
+                .any(|x| x.unwrap().file_name().to_str().unwrap() == document_id)
         )
     }
 }
@@ -100,7 +100,7 @@ impl ServerConnection for LocalServer{
     fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
                         -> Option<()> {
         let organization_name = self.tokens.get(token)?;
-        let document_id = rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES);
+        let document_id = BASE32.encode(&rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES));
 
         save(encrypted_document, &self.document_path(&document_id))?;
         save(encrypted_key, &self.organization_document_key_path(organization_name, &document_id))?;
@@ -113,7 +113,7 @@ impl ServerConnection for LocalServer{
 
         let build_data = |dir_entry: DirEntry| -> (DocumentID, EncryptedDocumentNameAndKey) {
             let document_id_os_str = dir_entry.file_name();
-            let document_id = BASE32.decode(document_id_os_str.to_str().unwrap().as_bytes()).unwrap();
+            let document_id = document_id_os_str.to_str().unwrap().to_string();
             let encrypted_document: EncryptedDocument = load(&self.document_path(&document_id)).unwrap();
             let encrypted_key = load(&self.organization_document_key_path(organization_name, &document_id)).unwrap();
 

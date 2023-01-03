@@ -1,4 +1,4 @@
-pub const SERVER_HOSTNAME: &str = "127.0.0.1";
+pub const SERVER_HOSTNAME: &str = "localhost";
 pub const SERVER_PORT: u16 = 80;
 
 pub const CREATE_ORGANIZATION_ENDPOINT: &str = "/create_organization";

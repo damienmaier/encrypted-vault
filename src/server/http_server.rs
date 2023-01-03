@@ -14,7 +14,9 @@ use crate::server_connection::ServerConnection;
 
 #[tokio::main]
 pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
-    let server_state = Arc::new(Mutex::new(LocalServer::new(&PathBuf::from(data_storage_directory))));
+    let server_state = Arc::new(Mutex::new(
+        LocalServer::new(&PathBuf::from(data_storage_directory))
+    ));
 
     let app = Router::new()
         .route(CREATE_ORGANIZATION_ENDPOINT, post(create_organization_handler))

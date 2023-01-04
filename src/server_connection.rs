@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-use dryoc::dryocbox;
+use dryoc::{dryocbox, pwhash};
 use crate::data::{DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare, EncryptedDocument};
 
 pub trait ServerConnection {
-    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)
+    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey, argon2_config: &pwhash::Config)
                            -> Option<()>;
 
     fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str)
-                    -> Option<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)>;
+                    -> Option<(UserShare, UserShare, pwhash::Config, dryocbox::PublicKey, EncryptedToken)>;
 
     fn revoke_user(&mut self, token: &Token, user_name: &str) -> Option<()>;
     

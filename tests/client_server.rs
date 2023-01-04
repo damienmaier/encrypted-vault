@@ -80,8 +80,7 @@ fn authenticate_clients_for_server<A: ServerConnection + Clone>(server: &mut A) 
                 server,
                 organization,
                 user1, password1,
-                user2, password2,
-                &fast_and_unsafe_argon_config())
+                user2, password2)
                 .unwrap())
         .collect()
 }
@@ -146,7 +145,6 @@ fn delete_user() {
             "Star Wars",
             "Luke", "lukepassword",
             "Leila", "leilapassword",
-            &fast_and_unsafe_argon_config(),
         ).unwrap();
 
     client_controller.revoke_user("Darth Vador").unwrap();
@@ -156,7 +154,6 @@ fn delete_user() {
         "Star Wars",
         "Darth Vador", "darthvadorpassword",
         "Leila", "leilapassword",
-        &fast_and_unsafe_argon_config(),
     );
     assert!(controller_option.is_none());
 }
@@ -173,7 +170,6 @@ fn delete_user_wrong_token() {
         "Star Wars",
         "Luke", "lukepassword",
         "Leila", "leilapassword",
-        &fast_and_unsafe_argon_config(),
     ).unwrap();
 }
 

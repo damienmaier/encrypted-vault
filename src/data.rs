@@ -55,11 +55,4 @@ pub type Token = Vec<u8>;
 pub const TOKEN_LENGTH_BYTES: usize = 32;
 
 pub type EncryptedToken = dryocbox::VecBox;
-
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-pub struct Organization {
-    pub users_data: HashMap<String, UserShare>,
-    pub public_key: dryocbox::PublicKey
-}
-
 pub type EncryptedDocumentKey = dryocbox::VecBox;

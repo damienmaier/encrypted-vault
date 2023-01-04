@@ -5,10 +5,10 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use data_encoding::BASE32;
-use dryoc::{dryocbox, rng};
+use dryoc::{dryocbox, pwhash, rng};
 use dryoc::dryocbox::DryocBox;
 
-use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Organization, Token, TOKEN_LENGTH_BYTES, UserShare};
+use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, TOKEN_LENGTH_BYTES, UserShare};
 use crate::data::EncryptedDocument;
 use crate::server::serde_json_disk::{load, save};
 use crate::server_connection::ServerConnection;
@@ -25,6 +25,7 @@ pub struct LocalServer {
 
 const ORGANIZATIONS_FOLDER_NAME: &str = "organizations";
 const PUBLIC_KEY_FILE_NAME: &str = "public_key";
+const ARGON_CONFIG_FILE_NAME: &str = "argon_config";
 const USERS_FOLDER_NAME: &str = "users";
 const DOCUMENTS_KEYS_FOLDER_NAME: &str = "documents_keys";
 const DOCUMENTS_FOLDER_NAME: &str = "documents";
@@ -40,6 +41,10 @@ impl LocalServer {
 
     fn organization_public_key_path(&self, organization_name: &str) -> PathBuf {
         self.organization_directory(organization_name).join(PUBLIC_KEY_FILE_NAME)
+    }
+
+    fn organization_argon_config_path(&self, organization_name: &str) -> PathBuf {
+        self.organization_directory(organization_name).join(ARGON_CONFIG_FILE_NAME)
     }
 
     fn organization_users_directory(&self, organization_name: &str, username: &str) -> PathBuf {
@@ -79,11 +84,11 @@ impl LocalServer {
 }
 
 impl ServerConnection for LocalServer {
-    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)
+    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey, argon2_config: &pwhash::Config)
                            -> Option<()>
     {
-        let organization = Organization { public_key: public_key.clone(), users_data: users_data.clone() };
-        save(&organization.public_key, &self.organization_public_key_path(organization_name), false)?;
+        save(public_key, &self.organization_public_key_path(organization_name), false)?;
+        save(argon2_config, &self.organization_argon_config_path(organization_name), false)?;
         for (user_name, user_share) in users_data {
             save(user_share, &self.organization_users_directory(organization_name, user_name), false)?;
         }
@@ -92,8 +97,9 @@ impl ServerConnection for LocalServer {
     }
 
     fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str)
-                    -> Option<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)> {
+                    -> Option<(UserShare, UserShare, pwhash::Config, dryocbox::PublicKey, EncryptedToken)> {
         let public_key: dryocbox::PublicKey = load(&self.organization_public_key_path(organization_name))?;
+        let argon_config: pwhash::Config = load(&self.organization_argon_config_path(organization_name))?;
 
         let user_share1: UserShare = load(&self.organization_users_directory(organization_name, user_name1))?;
         let user_share2: UserShare = load(&self.organization_users_directory(organization_name, user_name2))?;
@@ -108,7 +114,7 @@ impl ServerConnection for LocalServer {
         );
         let encrypted_token = DryocBox::seal_to_vecbox(&token, &public_key).ok()?;
 
-        Some((user_share1, user_share2, public_key, encrypted_token))
+        Some((user_share1, user_share2, argon_config, public_key, encrypted_token))
     }
 
     fn revoke_user(&mut self, token: &Token, user_name: &str) -> Option<()> {

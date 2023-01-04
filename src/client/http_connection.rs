@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use dryoc::dryocbox::PublicKey;
+use dryoc::pwhash;
 use reqwest;
 use reqwest::blocking::Response;
 use serde::Serialize;
@@ -46,11 +47,13 @@ impl HttpConnection {
 
 
 impl ServerConnection for HttpConnection {
-    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &PublicKey) -> Option<()> {
-        self.send_payload((organization_name, users_data, public_key), CREATE_ORGANIZATION_ENDPOINT)
+    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &PublicKey, argon2_config: &pwhash::Config)
+        -> Option<()> {
+        self.send_payload((organization_name, users_data, public_key, argon2_config), CREATE_ORGANIZATION_ENDPOINT)
     }
 
-    fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str) -> Option<(UserShare, UserShare, PublicKey, EncryptedToken)> {
+    fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str)
+        -> Option<(UserShare, UserShare, pwhash::Config, PublicKey, EncryptedToken)> {
         self.send_payload_and_deserialize_json_response((organization_name, user_name1, user_name2), UNLOCK_VAULT_ENDPOINT)
     }
 

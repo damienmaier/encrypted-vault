@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use axum::{routing::post, Router, Json};
 use axum::extract::{State};
-use dryoc::dryocbox;
+use dryoc::{dryocbox, pwhash};
 use reqwest::StatusCode;
 use crate::config::{ADD_OWNER_ENDPOINT, CREATE_ORGANIZATION_ENDPOINT, DELETE_DOCUMENT_ENDPOINT, GET_DOCUMENT_ENDPOINT, GET_DOCUMENT_KEY_ENDPOINT, GET_PUBLIC_KEY_ENDPOINT, LIST_DOCUMENTS_ENDPOINT, NEW_DOCUMENT_ENDPOINT, REVOKE_TOKEN_ENDPOINT, REVOKE_USER_ENDPOINT, UNLOCK_VAULT_ENDPOINT, UPDATE_DOCUMENT_ENDPOINT};
 use crate::data::{DocumentID, EncryptedDocument, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
@@ -42,12 +42,12 @@ pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
 
 async fn create_organization_handler(
     State(local_server): State<Arc<Mutex<LocalServer>>>,
-    Json((organization_name, users_data, public_key)): Json<(String, HashMap<String, UserShare>, dryocbox::PublicKey)>,
+    Json((organization_name, users_data, public_key, argon2_config)): Json<(String, HashMap<String, UserShare>, dryocbox::PublicKey, pwhash::Config)>,
 )
     -> Result<(), StatusCode> {
     convert_option_to_handler_result(
         local_server.lock().unwrap()
-            .create_organization(&organization_name, &users_data, &public_key)
+            .create_organization(&organization_name, &users_data, &public_key, &argon2_config)
     )
 }
 
@@ -55,7 +55,7 @@ async fn unlock_vault_handler(
     State(local_server): State<Arc<Mutex<LocalServer>>>,
     Json((organization_name, user_name1, user_name2)): Json<(String, String, String)>,
 )
-    -> Result<Json<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)>, StatusCode> {
+    -> Result<Json<(UserShare, UserShare, pwhash::Config, dryocbox::PublicKey, EncryptedToken)>, StatusCode> {
     json_handler_result(
         local_server.lock().unwrap()
             .unlock_vault(&organization_name, &user_name1, &user_name2)

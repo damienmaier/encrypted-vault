@@ -11,7 +11,7 @@ pub fn create_organization<A: ServerConnection>(server: &mut A, organization_nam
     let (user_encrypted_shares, public_key) =
         create_protected_key_pair(&user_credentials, &argon_config);
 
-    server.create_organization(organization_name, &user_encrypted_shares, &public_key)
+    server.create_organization(organization_name, &user_encrypted_shares, &public_key, &argon_config)
 }
 
 pub struct Controller<A: ServerConnection + Clone> {
@@ -23,12 +23,11 @@ pub struct Controller<A: ServerConnection + Clone> {
 impl<A: ServerConnection + Clone> Controller<A> {
     pub fn unlock_vault_for_organization(server: &mut A, organization_name: &str,
                                          username1: &str, password1: &str,
-                                         username2: &str, password2: &str,
-                                         argon_config: &pwhash::Config)
+                                         username2: &str, password2: &str)
                                          -> Option<Self> {
-        let (user_share1, user_share2, public_key, encrypted_token) =
+        let (user_share1, user_share2, argon_config, public_key, encrypted_token) =
             server.unlock_vault(organization_name, username1, username2)?;
-        let private_key = retrieve_private_key(password1, &user_share1, password2, &user_share2, argon_config);
+        let private_key = retrieve_private_key(password1, &user_share1, password2, &user_share2, &argon_config);
 
         let encryptor_decryptor =
             OrganizationEncryptorDecryptor::new(dryocbox::KeyPair { public_key, secret_key: private_key });

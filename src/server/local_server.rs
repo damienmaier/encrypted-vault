@@ -54,7 +54,6 @@ impl LocalServer {
     }
 
 
-
     fn is_client_owner_of_document(&self, token: &Token, document_id: &DocumentID) -> Option<bool> {
         let organization_name = self.tokens.get(token)?;
 
@@ -65,25 +64,25 @@ impl LocalServer {
     }
 }
 
-impl ServerConnection for LocalServer{
+impl ServerConnection for LocalServer {
     fn create_organization(&self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)
-                               -> Option<()>
+                           -> Option<()>
     {
         let organization = Organization { public_key: public_key.clone(), users_data: users_data.clone() };
         save(&organization.public_key, &self.organization_public_key_path(organization_name));
         for (user_name, user_share) in users_data {
-            save(user_share, &self.organization_users_directory(organization_name,user_name));
+            save(user_share, &self.organization_users_directory(organization_name, user_name));
         }
         fs::create_dir_all(self.organization_document_keys_directory(organization_name)).ok()?;
         Some(())
     }
 
     fn unlock_vault(&mut self, organization_name: &str, user_name1: &str, user_name2: &str)
-                        -> Option<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)> {
+                    -> Option<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)> {
         let public_key: dryocbox::PublicKey = load(&self.organization_public_key_path(organization_name))?;
 
         let user_share1: UserShare = load(&self.organization_users_directory(organization_name, user_name1))?;
-        let user_share2: UserShare = load(&self.organization_users_directory(organization_name,user_name2))?;
+        let user_share2: UserShare = load(&self.organization_users_directory(organization_name, user_name2))?;
 
         let token = rng::randombytes_buf(TOKEN_LENGTH_BYTES);
         self.tokens.insert(token.clone(), organization_name.to_string());
@@ -94,11 +93,16 @@ impl ServerConnection for LocalServer{
 
     fn revoke_user(&self, token: &Token, user_name: &str) -> Option<()> {
         let organization_name = self.tokens.get(token)?;
-        fs::remove_file(&self.organization_users_directory(organization_name,user_name)).ok()
+        fs::remove_file(&self.organization_users_directory(organization_name, user_name)).ok()
+    }
+
+    fn revoke_token(&mut self, token: &Token) -> Option<()> {
+        self.tokens.remove(token);
+        Some(())
     }
 
     fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
-                        -> Option<()> {
+                    -> Option<()> {
         let organization_name = self.tokens.get(token)?;
         let document_id = BASE32.encode(&rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES));
 
@@ -133,7 +137,6 @@ impl ServerConnection for LocalServer{
     fn get_document_key(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
         let organization_name = self.tokens.get(token)?;
         load(&self.organization_document_key_path(organization_name, &document_id))
-
     }
 
     fn get_document(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocument> {
@@ -145,7 +148,7 @@ impl ServerConnection for LocalServer{
     }
 
     fn update_document(&self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument)
-                           -> Option<()> {
+                       -> Option<()> {
         if self.is_client_owner_of_document(&token, &document_id)? {
             save(encrypted_document, &self.document_path(&document_id))
         } else {
@@ -167,12 +170,11 @@ impl ServerConnection for LocalServer{
     }
 
     fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
-                     -> Option<()> {
+                 -> Option<()> {
         if self.is_client_owner_of_document(&token, &document_id)? {
             save(&encrypted_document_key, &self.organization_document_key_path(other_organization_name, &document_id))
         } else {
             None
         }
     }
-
 }

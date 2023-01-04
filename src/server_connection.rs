@@ -10,7 +10,9 @@ pub trait ServerConnection {
                     -> Option<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)>;
 
     fn revoke_user(&self, token: &Token, user_name: &str) -> Option<()>;
-
+    
+    fn revoke_token(&mut self, token: &Token) -> Option<()>;
+    
     fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
                     -> Option<()>;
 
@@ -29,4 +31,5 @@ pub trait ServerConnection {
 
     fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
                  -> Option<()>;
+    
 }

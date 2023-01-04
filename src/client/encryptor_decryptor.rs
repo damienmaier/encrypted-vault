@@ -3,16 +3,21 @@ use dryoc::{dryocbox, dryocsecretbox};
 use dryoc::dryocbox::DryocBox;
 use dryoc::dryocsecretbox::NewByteArray;
 
-use crate::data::{Document, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey};
+use crate::data::{Document, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token};
 use crate::data::EncryptedDocument;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
-pub struct ClientEncryptorDecryptor {
-    pub key_pair: dryocbox::KeyPair,
+#[derive(PartialEq, Debug)]
+pub struct OrganizationEncryptorDecryptor {
+    key_pair: dryocbox::KeyPair,
 }
 
-impl ClientEncryptorDecryptor {
+impl OrganizationEncryptorDecryptor {
+    
+    pub fn new(key_pair: dryocbox::KeyPair) -> OrganizationEncryptorDecryptor{
+        OrganizationEncryptorDecryptor{key_pair}
+    }
 
     pub fn find_document_id_from_name(&self, document_list: &HashMap<DocumentID, EncryptedDocumentNameAndKey>, name: &str) -> Option<DocumentID> {
         document_list
@@ -58,6 +63,10 @@ impl ClientEncryptorDecryptor {
         DryocBox::seal_to_vecbox(&document_key, other_organization_public_key).unwrap()
     }
 
+    pub fn decrypt_token(&self, encrypted_token: &EncryptedToken) -> Token{
+        encrypted_token.unseal_to_vec(&self.key_pair).unwrap()
+    }
+
     fn decrypt_document_key(&self, encrypted_key: &EncryptedDocumentKey) -> dryocsecretbox::Key {
         let symmetric_key_vec = encrypted_key.unseal_to_vec(&self.key_pair).unwrap();
 
@@ -70,63 +79,76 @@ impl ClientEncryptorDecryptor {
 mod tests {
     use super::*;
 
-    fn test_document1() -> Document {
+    fn test_document() -> Document {
         Document {
             name: String::from("test document name"),
             content: String::from("test document content"),
         }
     }
 
-    fn mock_unlocked_vault() -> ClientEncryptorDecryptor {
-        ClientEncryptorDecryptor{key_pair: dryocbox::KeyPair::gen()}
+    fn mock_encryptor_decryptor() -> OrganizationEncryptorDecryptor {
+        OrganizationEncryptorDecryptor {key_pair: dryocbox::KeyPair::gen()}
     }
 
     #[test]
     fn encryption_then_decryption() {
-        let vault = mock_unlocked_vault();
+        let encryptor_decryptor = mock_encryptor_decryptor();
 
         let (encrypted_document, encrypted_key) =
-            vault.generate_document_key_and_encrypt_document(&test_document1());
+            encryptor_decryptor.generate_document_key_and_encrypt_document(&test_document());
 
         let decrypted_document =
-            vault.decrypt_document(&encrypted_document, &encrypted_key);
+            encryptor_decryptor.decrypt_document(&encrypted_document, &encrypted_key);
 
-        assert_eq!(decrypted_document, test_document1());
+        assert_eq!(decrypted_document, test_document());
     }
 
     #[test]
     fn encryption_then_name_decryption() {
-        let vault = mock_unlocked_vault();
+        let encryptor_decryptor = mock_encryptor_decryptor();
 
         let (encrypted_document, encrypted_key) =
-            vault.generate_document_key_and_encrypt_document(&test_document1());
+            encryptor_decryptor.generate_document_key_and_encrypt_document(&test_document());
 
         let decrypted_name =
-            vault.decrypt_document_name(&encrypted_document.name, &encrypted_key);
+            encryptor_decryptor.decrypt_document_name(&encrypted_document.name, &encrypted_key);
 
-        assert_eq!(decrypted_name, test_document1().name);
+        assert_eq!(decrypted_name, test_document().name);
     }
 
     #[test]
     fn encryption_then_update_then_decryption() {
-        let vault = mock_unlocked_vault();
+        let encryptor_decryptor = mock_encryptor_decryptor();
 
-        let (.., encrypted_key) = vault.generate_document_key_and_encrypt_document(&test_document1());
-        let encrypted_document = vault.encrypt_document_with_key(&test_document1(), &encrypted_key);
-        let decrypted_document = vault.decrypt_document(&encrypted_document, &encrypted_key);
+        let (.., encrypted_key) = encryptor_decryptor.generate_document_key_and_encrypt_document(&test_document());
+        let encrypted_document = encryptor_decryptor.encrypt_document_with_key(&test_document(), &encrypted_key);
+        let decrypted_document = encryptor_decryptor.decrypt_document(&encrypted_document, &encrypted_key);
 
-        assert_eq!(decrypted_document, test_document1())
+        assert_eq!(decrypted_document, test_document())
     }
 
     #[test]
     fn encryption_then_add_owner_then_decryption() {
-        let vault1 = mock_unlocked_vault();
-        let vault2 = mock_unlocked_vault();
+        let encryptor_decryptor1 = mock_encryptor_decryptor();
+        let encryptor_decryptor2 = mock_encryptor_decryptor();
 
-        let (encrypted_document, encrypted_key) = vault1.generate_document_key_and_encrypt_document(&test_document1());
-        let other_encrypted_key = vault1.encrypt_document_key_for_other_organization(&encrypted_key, &vault2.key_pair.public_key);
-        let decrypted_document = vault2.decrypt_document(&encrypted_document, &other_encrypted_key);
+        let (encrypted_document, encrypted_key) = 
+            encryptor_decryptor1.generate_document_key_and_encrypt_document(&test_document());
+        let other_encrypted_key = 
+            encryptor_decryptor1.encrypt_document_key_for_other_organization(&encrypted_key, &encryptor_decryptor2.key_pair.public_key);
+        let decrypted_document = encryptor_decryptor2.decrypt_document(&encrypted_document, &other_encrypted_key);
 
-        assert_eq!(decrypted_document, test_document1())
+        assert_eq!(decrypted_document, test_document())
+    }
+
+    #[test]
+    fn decrypt_token() {
+        let encryptor_decryptor = mock_encryptor_decryptor();
+        
+        let token : Token = "my token".into();
+        let encrypted_token = 
+            DryocBox::seal_to_vecbox(&token, &encryptor_decryptor.key_pair.public_key).unwrap();
+        
+        assert_eq!(token, encryptor_decryptor.decrypt_token(&encrypted_token))
     }
 }

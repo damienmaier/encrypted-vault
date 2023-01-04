@@ -7,7 +7,7 @@ use axum::{routing::post, Router, Json};
 use axum::extract::{State};
 use dryoc::dryocbox;
 use reqwest::StatusCode;
-use crate::config::{ADD_OWNER_ENDPOINT, CREATE_ORGANIZATION_ENDPOINT, DELETE_DOCUMENT_ENDPOINT, GET_DOCUMENT_ENDPOINT, GET_DOCUMENT_KEY_ENDPOINT, GET_PUBLIC_KEY_ENDPOINT, LIST_DOCUMENTS_ENDPOINT, NEW_DOCUMENT_ENDPOINT, REVOKE_USER_ENDPOINT, UNLOCK_VAULT_ENDPOINT, UPDATE_DOCUMENT_ENDPOINT};
+use crate::config::{ADD_OWNER_ENDPOINT, CREATE_ORGANIZATION_ENDPOINT, DELETE_DOCUMENT_ENDPOINT, GET_DOCUMENT_ENDPOINT, GET_DOCUMENT_KEY_ENDPOINT, GET_PUBLIC_KEY_ENDPOINT, LIST_DOCUMENTS_ENDPOINT, NEW_DOCUMENT_ENDPOINT, REVOKE_TOKEN_ENDPOINT, REVOKE_USER_ENDPOINT, UNLOCK_VAULT_ENDPOINT, UPDATE_DOCUMENT_ENDPOINT};
 use crate::data::{DocumentID, EncryptedDocument, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
 use crate::server::local_server::LocalServer;
 use crate::server_connection::ServerConnection;
@@ -22,6 +22,7 @@ pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
         .route(CREATE_ORGANIZATION_ENDPOINT, post(create_organization_handler))
         .route(UNLOCK_VAULT_ENDPOINT, post(unlock_vault_handler))
         .route(REVOKE_USER_ENDPOINT, post(revoke_user_handler))
+        .route(REVOKE_TOKEN_ENDPOINT, post(revoke_token_handler))
         .route(NEW_DOCUMENT_ENDPOINT, post(new_document_handler))
         .route(LIST_DOCUMENTS_ENDPOINT, post(list_documents_handler))
         .route(GET_DOCUMENT_KEY_ENDPOINT, post(get_document_key_handler))
@@ -69,6 +70,17 @@ async fn revoke_user_handler(
     convert_option_to_handler_result(
         local_server.lock().unwrap()
             .revoke_user(&token, &user_name)
+    )
+}
+
+async fn revoke_token_handler(
+    State(local_server): State<Arc<Mutex<LocalServer>>>,
+    Json(token): Json<Token>,
+)
+    -> Result<(), StatusCode> {
+    convert_option_to_handler_result(
+        local_server.lock().unwrap()
+            .revoke_token(&token)
     )
 }
 

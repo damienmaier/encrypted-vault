@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::thread;
 
+use dryoc::pwhash;
 use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
 
-use vault::client::controller::{create_organization_unsafe, download_from_document_id, download_from_document_name, get_id_of_document_by_name, share, unlock_vault_for_organization_unsafe, update, upload};
-use vault::client::encryptor_decryptor::ClientEncryptorDecryptor;
+use vault::client::controller;
+use vault::client::controller::Controller;
 use vault::client::http_connection::HttpConnection;
-use vault::data::{Document, DocumentID, Token};
+use vault::data::Document;
 use vault::server::http_server::run_http_server;
 use vault::server_connection::ServerConnection;
 
@@ -27,6 +28,10 @@ fn random_string(length: usize) -> String {
 const FIRST_ALLOWED_TCP_PORT: u16 = 1024;
 const LAST_TCP_PORT: u16 = 65534;
 
+fn fast_and_unsafe_argon_config() -> pwhash::Config {
+    pwhash::Config::default().with_memlimit(10000).with_opslimit(1)
+}
+
 fn set_up_server_with_organizations() -> HttpConnection {
     // As multiple tests are run in parallel,
     // we use a random port and a random data folder to avoid collisions
@@ -42,7 +47,7 @@ fn set_up_server_with_organizations() -> HttpConnection {
     as_user_credentials.insert("Wheatley".to_string(), "weathleypassword".to_string());
     as_user_credentials.insert("Cave".to_string(), "cavepassword".to_string());
 
-    create_organization_unsafe(&server, "Aperture Science", &as_user_credentials);
+    controller::create_organization(&server, "Aperture Science", &as_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
 
 
     let mut sw_user_credentials = HashMap::new();
@@ -51,19 +56,19 @@ fn set_up_server_with_organizations() -> HttpConnection {
     sw_user_credentials.insert("Leila".to_string(), "leilapassword".to_string());
     sw_user_credentials.insert("R2D2".to_string(), "r2d2password".to_string());
 
-    create_organization_unsafe(&server, "Star Wars", &sw_user_credentials);
+    controller::create_organization(&server, "Star Wars", &sw_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
 
 
     let mut lotr_user_credentials = HashMap::new();
     lotr_user_credentials.insert("Gandalf".to_string(), "gandalfpassword".to_string());
     lotr_user_credentials.insert("Frodo".to_string(), "frodopassword".to_string());
 
-    create_organization_unsafe(&server, "LotR", &lotr_user_credentials);
+    controller::create_organization(&server, "LotR", &lotr_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
 
     server
 }
 
-fn authenticate_clients_for_server<A: ServerConnection>(server: &mut A) -> (Vec<ClientEncryptorDecryptor>, Vec<Token>) {
+fn authenticate_clients_for_server<A: ServerConnection + Clone>(server: &mut A) -> Vec<Controller<A>> {
     vec![
         ("Aperture Science", "Chell", "chellpassword", "Cave", "cavepassword"),
         ("Star Wars", "Luke", "lukepassword", "Leila", "leilapassword"),
@@ -71,223 +76,185 @@ fn authenticate_clients_for_server<A: ServerConnection>(server: &mut A) -> (Vec<
     ]
         .iter()
         .map(|(organization, user1, password1, user2, password2)|
-            unlock_vault_for_organization_unsafe(server, organization, user1, password1, user2, password2))
-        .unzip()
+            Controller::unlock_vault_for_organization(
+                server,
+                organization,
+                user1, password1,
+                user2, password2,
+                &fast_and_unsafe_argon_config())
+                .unwrap())
+        .collect()
 }
 
-fn set_up_server_with_organizations_and_documents() -> (HttpConnection, Vec<ClientEncryptorDecryptor>, Vec<Token>) {
+fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnection>> {
     let mut server = set_up_server_with_organizations();
-    let (clients, tokens) = authenticate_clients_for_server(&mut server);
-
+    let client_controllers = authenticate_clients_for_server(&mut server);
 
     let document = Document {
         name: "aperture science 1".to_string(),
         content: "aperture science content 1".to_string(),
     };
-    upload(&document, &tokens[0], &clients[0], &server);
+    client_controllers[0].upload(&document);
 
     let document = Document {
         name: "aperture science 2".to_string(),
         content: "aperture science content 2".to_string(),
     };
-    upload(&document, &tokens[0], &clients[0], &server);
+    client_controllers[0].upload(&document);
 
     let document = Document {
         name: "aperture science star wars shared".to_string(),
         content: "shared content".to_string(),
     };
-    upload(&document, &tokens[0], &clients[0], &server);
-    let document_id = get_id_of_document_by_name("aperture science star wars shared", &tokens[0], &clients[0], &server).unwrap();
-    share(&document_id, "Star Wars", &tokens[0], &clients[0], &server);
+    client_controllers[0].upload(&document);
+    client_controllers[0].share("aperture science star wars shared", "Star Wars");
 
     let document = Document {
         name: "star wars".to_string(),
         content: "star wars content".to_string(),
     };
-    upload(&document, &tokens[1], &clients[1], &server);
+    client_controllers[1].upload(&document);
 
-    (server, clients, tokens)
+    client_controllers
 }
 
 #[test]
 fn unlock_vault() {
-
     let mut server = set_up_server_with_organizations();
     authenticate_clients_for_server(&mut server);
 }
 
 #[test]
 fn delete_user() {
-
     let mut server = set_up_server_with_organizations();
-    let (.., tokens) = authenticate_clients_for_server(&mut server);
+    let client_controller =
+        Controller::unlock_vault_for_organization(
+            &mut server,
+            "Star Wars",
+            "Luke", "lukepassword",
+            "Leila", "leilapassword",
+            &fast_and_unsafe_argon_config(),
+        ).unwrap();
 
-    server.revoke_user(&tokens[1], "Darth Vador").unwrap();
+    client_controller.revoke_user("Darth Vador").unwrap();
 
-    assert_eq!(None, server.unlock_vault("Star Wars", "Darth Vador", "Leila"));
+    let controller_option = Controller::unlock_vault_for_organization(
+        &mut server,
+        "Star Wars",
+        "Darth Vador", "darthvadorpassword",
+        "Leila", "leilapassword",
+        &fast_and_unsafe_argon_config(),
+    );
+    assert!(controller_option.is_none());
 }
 
 #[test]
 fn delete_user_wrong_token() {
-
     let mut server = set_up_server_with_organizations();
-    let (.., tokens) = authenticate_clients_for_server(&mut server);
+    let client_controllers = authenticate_clients_for_server(&mut server);
 
-    assert_eq!(None, server.revoke_user(&tokens[2], "Darth Vador"));
+    assert!(client_controllers[0].revoke_user("Darth Vador").is_none());
 
-    unlock_vault_for_organization_unsafe(
-        &mut server, "Star Wars",
-        "Darth Vador", "darthvadorpassword",
+    Controller::unlock_vault_for_organization(
+        &mut server,
+        "Star Wars",
+        "Luke", "lukepassword",
         "Leila", "leilapassword",
-    );
+        &fast_and_unsafe_argon_config(),
+    ).unwrap();
+}
+
+#[test]
+fn revoke_token() {
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
+
+    client_controllers[0].revoke_token().unwrap();
+
+    assert!(client_controllers[0].list_document_names().is_none());
+    client_controllers[1].list_document_names().unwrap();
 }
 
 #[test]
 fn list_documents() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
+    let client_controllers = set_up_server_with_organizations_and_documents();
 
-    let organization0_documents = server.list_documents(&tokens[0]).unwrap();
-    assert_eq!(3, organization0_documents.len());
-    clients[0].find_document_id_from_name(&organization0_documents, "aperture science 1").unwrap();
-    clients[0].find_document_id_from_name(&organization0_documents, "aperture science 2").unwrap();
-    clients[0].find_document_id_from_name(&organization0_documents, "aperture science star wars shared").unwrap();
+    let organization0_document_names = client_controllers[0].list_document_names().unwrap();
+    assert_eq!(3, organization0_document_names.len());
+    assert!(organization0_document_names.contains(&"aperture science 1".into()));
+    assert!(organization0_document_names.contains(&"aperture science 2".into()));
+    assert!(organization0_document_names.contains(&"aperture science star wars shared".into()));
 
-    let organization1_documents = server.list_documents(&tokens[1]).unwrap();
-    assert_eq!(2, organization1_documents.len());
-    clients[1].find_document_id_from_name(&organization1_documents, "star wars").unwrap();
-    clients[1].find_document_id_from_name(&organization1_documents, "aperture science star wars shared").unwrap();
+    let organization1_document_names = client_controllers[1].list_document_names().unwrap();
+    assert_eq!(2, organization1_document_names.len());
+    assert!(organization1_document_names.contains(&"star wars".into()));
+    assert!(organization1_document_names.contains(&"aperture science star wars shared".into()));
 
-    let organization2_documents = server.list_documents(&tokens[2]).unwrap();
-    assert_eq!(0, organization2_documents.len());
-}
-
-#[test]
-fn list_documents_wrong_token() {
-    let (server, ..) = set_up_server_with_organizations_and_documents();
-
-    assert_eq!(None, server.list_documents(&Vec::<u8>::new()));
-}
-
-#[test]
-fn get_document_key_wrong_token() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
-    let id_of_document_not_owned_by_organization_2 =
-        get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server).unwrap();
-    assert_eq!(None, server.get_document_key(&tokens[2], &id_of_document_not_owned_by_organization_2));
+    let organization2_document_names = client_controllers[2].list_document_names().unwrap();
+    assert_eq!(0, organization2_document_names.len());
 }
 
 #[test]
 fn get_document() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
+    let client_controllers = set_up_server_with_organizations_and_documents();
 
-    let document1 = download_from_document_name("aperture science 1", &tokens[0], &clients[0], &server);
+    let document1 = client_controllers[0].download("aperture science 1").unwrap();
     assert_eq!(document1, Document { name: "aperture science 1".to_string(), content: "aperture science content 1".to_string() });
 
-    let document2 = download_from_document_name("aperture science 2", &tokens[0], &clients[0], &server);
+    let document2 = client_controllers[0].download("aperture science 2").unwrap();
     assert_eq!(document2, Document { name: "aperture science 2".to_string(), content: "aperture science content 2".to_string() });
 
-    let document3 = download_from_document_name("aperture science star wars shared", &tokens[0], &clients[0], &server);
+    let document3 = client_controllers[0].download("aperture science star wars shared").unwrap();
     assert_eq!(document3, Document { name: "aperture science star wars shared".to_string(), content: "shared content".to_string() });
 
-    let document4 = download_from_document_name("aperture science star wars shared", &tokens[1], &clients[1], &server);
+    let document4 = client_controllers[1].download("aperture science star wars shared").unwrap();
     assert_eq!(document4, Document { name: "aperture science star wars shared".to_string(), content: "shared content".to_string() });
 
-    let document5 = download_from_document_name("star wars", &tokens[1], &clients[1], &server);
+    let document5 = client_controllers[1].download("star wars").unwrap();
     assert_eq!(document5, Document { name: "star wars".to_string(), content: "star wars content".to_string() });
 }
 
 #[test]
-fn get_document_wrong_token() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
-
-    let id_of_document_not_owned_by_organization_2 =
-        get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server).unwrap();
-    assert_eq!(None, server.get_document(&tokens[2], &id_of_document_not_owned_by_organization_2));
-}
-
-#[test]
 fn update_document() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
-
-    let document_id = get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server).unwrap();
+    let client_controllers = set_up_server_with_organizations_and_documents();
 
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
-    update(&document_id, &new_document, &tokens[0], &clients[0], &server).unwrap();
+    client_controllers[0].update("aperture science 1", &new_document).unwrap();
 
-    let downloaded_document = download_from_document_id(&document_id, &tokens[0], &clients[0], &server);
+    assert!(client_controllers[0].download("aperture science 1").is_none());
+
+    let downloaded_document = client_controllers[0].download("new name").unwrap();
     assert_eq!(new_document, downloaded_document);
 }
 
 #[test]
 fn update_shared_document() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
-
-    let document_id =
-        get_id_of_document_by_name("aperture science star wars shared", &tokens[0], &clients[0], &server).unwrap();
+    let client_controllers = set_up_server_with_organizations_and_documents();
 
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
-    update(&document_id, &new_document, &tokens[0], &clients[0], &server).unwrap();
+    client_controllers[0].update("aperture science star wars shared", &new_document).unwrap();
 
-    let downloaded_document = download_from_document_id(&document_id, &tokens[1], &clients[1], &server);
+    assert!(client_controllers[1].download("aperture science star wars shared").is_none());
+
+    let downloaded_document = client_controllers[1].download("new name").unwrap();
     assert_eq!(new_document, downloaded_document);
 }
 
 #[test]
-fn update_document_wrong_token() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
-
-    let document_id = get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server).unwrap();
-
-    let original_document = download_from_document_id(&document_id, &tokens[0], &clients[0], &server);
-    let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
-    assert_eq!(None, update(&document_id, &new_document, &tokens[2], &clients[2], &server));
-
-    let downloaded_document = download_from_document_id(&document_id, &tokens[0], &clients[0], &server);
-    assert_eq!(original_document, downloaded_document);
-}
-
-#[test]
 fn delete_document() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
+    let client_controllers = set_up_server_with_organizations_and_documents();
 
-    let deleted_document_id = get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server)
-        .unwrap();
-    server.delete_document(&tokens[0], &deleted_document_id).unwrap();
+    client_controllers[0].delete("aperture science 1").unwrap();
 
-    let documents_list = server.list_documents(&tokens[0]).unwrap();
-    let document_ids: Vec<DocumentID> = documents_list.keys().cloned().collect();
-    assert!(!document_ids.contains(&deleted_document_id));
-
-    assert_eq!(None, server.get_document(&tokens[0], &deleted_document_id));
+    let organization_document_names = client_controllers[0].list_document_names().unwrap();
+    assert!(!organization_document_names.contains(&"aperture science 1".into()));
 }
 
 #[test]
 fn delete_shared_document() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
+    let client_controllers = set_up_server_with_organizations_and_documents();
 
-    let deleted_document_id =
-        get_id_of_document_by_name("aperture science star wars shared", &tokens[0], &clients[0], &server)
-            .unwrap();
-    server.delete_document(&tokens[0], &deleted_document_id).unwrap();
+    client_controllers[0].delete("aperture science star wars shared").unwrap();
 
-    let documents_list = server.list_documents(&tokens[1]).unwrap();
-    let document_ids: Vec<DocumentID> = documents_list.keys().cloned().collect();
-    assert!(document_ids.contains(&deleted_document_id));
-
-    server.get_document(&tokens[1], &deleted_document_id).unwrap();
-}
-
-#[test]
-fn delete_document_wrong_token() {
-    let (server, clients, tokens) = set_up_server_with_organizations_and_documents();
-
-    let deleted_document_id = get_id_of_document_by_name("aperture science 1", &tokens[0], &clients[0], &server)
-        .unwrap();
-    assert_eq!(None, server.delete_document(&tokens[1], &deleted_document_id));
-
-    let documents_list = server.list_documents(&tokens[0]).unwrap();
-    let document_ids: Vec<DocumentID> = documents_list.keys().cloned().collect();
-    assert!(document_ids.contains(&deleted_document_id));
-
-    server.get_document(&tokens[0], &deleted_document_id).unwrap();
+    let organization_document_names = client_controllers[1].list_document_names().unwrap();
+    assert!(organization_document_names.contains(&"aperture science star wars shared".into()));
 }

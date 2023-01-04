@@ -44,10 +44,9 @@ async fn create_organization_handler(
     Json((organization_name, users_data, public_key)): Json<(String, HashMap<String, UserShare>, dryocbox::PublicKey)>,
 )
     -> Result<(), StatusCode> {
-    Ok(
+    convert_option_to_handler_result(
         local_server.lock().unwrap()
             .create_organization(&organization_name, &users_data, &public_key)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
     )
 }
 
@@ -56,11 +55,10 @@ async fn unlock_vault_handler(
     Json((organization_name, user_name1, user_name2)): Json<(String, String, String)>,
 )
     -> Result<Json<(UserShare, UserShare, dryocbox::PublicKey, EncryptedToken)>, StatusCode> {
-    Ok(Json(
+    json_handler_result(
         local_server.lock().unwrap()
             .unlock_vault(&organization_name, &user_name1, &user_name2)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
-    ))
+    )
 }
 
 async fn revoke_user_handler(
@@ -68,10 +66,9 @@ async fn revoke_user_handler(
     Json((token, user_name)): Json<(Token, String)>,
 )
     -> Result<(), StatusCode> {
-    Ok(
+    convert_option_to_handler_result(
         local_server.lock().unwrap()
             .revoke_user(&token, &user_name)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
     )
 }
 
@@ -80,10 +77,9 @@ async fn new_document_handler(
     Json((token, encrypted_document, encrypted_key)): Json<(Token, EncryptedDocument, EncryptedDocumentKey)>,
 )
     -> Result<(), StatusCode> {
-    Ok(
+    convert_option_to_handler_result(
         local_server.lock().unwrap()
             .new_document(&token, &encrypted_document, &encrypted_key)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
     )
 }
 
@@ -92,11 +88,10 @@ async fn list_documents_handler(
     Json(token): Json<Token>,
 )
     -> Result<Json<HashMap<DocumentID, EncryptedDocumentNameAndKey>>, StatusCode> {
-    Ok(Json(
+    json_handler_result(
         local_server.lock().unwrap()
             .list_documents(&token)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
-    ))
+    )
 }
 
 async fn get_document_key_handler(
@@ -104,11 +99,10 @@ async fn get_document_key_handler(
     Json((token, document_id)): Json<(Token, DocumentID)>,
 )
     -> Result<Json<EncryptedDocumentKey>, StatusCode> {
-    Ok(Json(
+    json_handler_result(
         local_server.lock().unwrap()
             .get_document_key(&token, &document_id)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
-    ))
+    )
 }
 
 async fn get_document_handler(
@@ -116,11 +110,10 @@ async fn get_document_handler(
     Json((token, document_id)): Json<(Token, DocumentID)>,
 )
     -> Result<Json<EncryptedDocument>, StatusCode> {
-    Ok(Json(
+    json_handler_result(
         local_server.lock().unwrap()
             .get_document(&token, &document_id)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
-    ))
+    )
 }
 
 async fn update_document_handler(
@@ -128,10 +121,9 @@ async fn update_document_handler(
     Json((token, document_id, encrypted_document)): Json<(Token, DocumentID, EncryptedDocument)>,
 )
     -> Result<(), StatusCode> {
-    Ok(
+    convert_option_to_handler_result(
         local_server.lock().unwrap()
             .update_document(&token, &document_id, &encrypted_document)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
     )
 }
 
@@ -140,10 +132,9 @@ async fn delete_document_handler(
     Json((token, document_id)): Json<(Token, DocumentID)>,
 )
     -> Result<(), StatusCode> {
-    Ok(
+    convert_option_to_handler_result(
         local_server.lock().unwrap()
             .delete_document(&token, &document_id)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
     )
 }
 
@@ -152,11 +143,10 @@ async fn get_public_key_handler(
     Json(organization_name): Json<String>,
 )
     -> Result<Json<dryocbox::PublicKey>, StatusCode> {
-    Ok(Json(
+    json_handler_result(
         local_server.lock().unwrap()
             .get_public_key_of_organization(&organization_name)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
-    ))
+    )
 }
 
 async fn add_owner_handler(
@@ -164,9 +154,20 @@ async fn add_owner_handler(
     Json((token, document_id, other_organization_name, encrypted_document_key)): Json<(Token, DocumentID, String, EncryptedDocumentKey)>,
 )
     -> Result<(), StatusCode> {
-    Ok(
+    convert_option_to_handler_result(
         local_server.lock().unwrap()
             .add_owner(&token, &document_id, &other_organization_name, &encrypted_document_key)
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
+    )
+}
+
+fn convert_option_to_handler_result<A>(option: Option<A>) ->  Result<A, StatusCode>{
+    option.ok_or(StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+fn json_handler_result<A>(option: Option<A>) ->  Result<Json<A>, StatusCode>{
+    Ok(
+        Json(
+            convert_option_to_handler_result(option)?
+        )
     )
 }

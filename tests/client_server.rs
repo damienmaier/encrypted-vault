@@ -119,7 +119,20 @@ fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnec
 }
 
 #[test]
-fn unlock_vault() {
+fn create_organization_same_name() {
+    let mut server = set_up_server_with_organizations();
+
+    let mut user_credentials = HashMap::new();
+    user_credentials.insert("user1".to_string(), "password1".to_string());
+    user_credentials.insert("user2".to_string(), "password2".to_string());
+    let controller_option =
+        controller::create_organization(&mut server, "Aperture Science", &user_credentials, &fast_and_unsafe_argon_config());
+
+    assert!(controller_option.is_none());
+}
+
+#[test]
+fn create_organizations_and_unlock() {
     let mut server = set_up_server_with_organizations();
     authenticate_clients_for_server(&mut server);
 }

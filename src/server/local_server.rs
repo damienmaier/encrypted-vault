@@ -83,9 +83,9 @@ impl ServerConnection for LocalServer {
                            -> Option<()>
     {
         let organization = Organization { public_key: public_key.clone(), users_data: users_data.clone() };
-        save(&organization.public_key, &self.organization_public_key_path(organization_name));
+        save(&organization.public_key, &self.organization_public_key_path(organization_name), false)?;
         for (user_name, user_share) in users_data {
-            save(user_share, &self.organization_users_directory(organization_name, user_name));
+            save(user_share, &self.organization_users_directory(organization_name, user_name), false)?;
         }
         fs::create_dir_all(self.organization_document_keys_directory(organization_name)).ok()?;
         Some(())
@@ -126,8 +126,8 @@ impl ServerConnection for LocalServer {
         let organization_name = self.authenticate_organization_with_token(&token)?;
         let document_id = BASE32.encode(&rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES));
 
-        save(encrypted_document, &self.document_path(&document_id))?;
-        save(encrypted_key, &self.organization_document_key_path(&organization_name, &document_id))?;
+        save(encrypted_document, &self.document_path(&document_id), false)?;
+        save(encrypted_key, &self.organization_document_key_path(&organization_name, &document_id), false)?;
 
         Some(())
     }
@@ -170,7 +170,7 @@ impl ServerConnection for LocalServer {
     fn update_document(&mut self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument)
                        -> Option<()> {
         if self.check_if_client_is_owner_of_document(&token, &document_id)? {
-            save(encrypted_document, &self.document_path(&document_id))
+            save(encrypted_document, &self.document_path(&document_id), true)
         } else {
             None
         }
@@ -192,7 +192,7 @@ impl ServerConnection for LocalServer {
     fn add_owner(&mut self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
                  -> Option<()> {
         if self.check_if_client_is_owner_of_document(&token, &document_id)? {
-            save(&encrypted_document_key, &self.organization_document_key_path(other_organization_name, &document_id))
+            save(&encrypted_document_key, &self.organization_document_key_path(other_organization_name, &document_id), false)
         } else {
             None
         }

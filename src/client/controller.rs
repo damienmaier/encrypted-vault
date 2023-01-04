@@ -6,7 +6,7 @@ use crate::data::{Document, DocumentID, EncryptedDocumentNameAndKey, Token};
 use crate::server_connection::ServerConnection;
 
 
-pub fn create_organization<A: ServerConnection>(server: &A, organization_name: &str, user_credentials: &HashMap<String, String>, argon_config: &pwhash::Config)
+pub fn create_organization<A: ServerConnection>(server: &mut A, organization_name: &str, user_credentials: &HashMap<String, String>, argon_config: &pwhash::Config)
                                                 -> Option<()> {
     let (user_encrypted_shares, public_key) =
         create_protected_key_pair(&user_credentials, &argon_config);
@@ -37,7 +37,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         Some(Controller { server: server.clone(), encryptor_decryptor, token })
     }
 
-    pub fn revoke_user(&self, username: &str) -> Option<()> {
+    pub fn revoke_user(&mut self, username: &str) -> Option<()> {
         self.server.revoke_user(&self.token, username)
     }
 
@@ -46,13 +46,13 @@ impl<A: ServerConnection + Clone> Controller<A> {
     }
 
 
-    pub fn upload(&self, document: &Document) -> Option<()> {
+    pub fn upload(&mut self, document: &Document) -> Option<()> {
         let (encrypted_document, encrypted_key) =
             self.encryptor_decryptor.generate_document_key_and_encrypt_document(document);
         self.server.new_document(&self.token, &encrypted_document, &encrypted_key)
     }
 
-    pub fn list_document_names(&self) -> Option<Vec<String>> {
+    pub fn list_document_names(&mut self) -> Option<Vec<String>> {
         let encrypted_document_names = self.server.list_documents(&self.token)?;
         let document_names = encrypted_document_names
             .iter()
@@ -63,12 +63,12 @@ impl<A: ServerConnection + Clone> Controller<A> {
     }
 
 
-    pub fn get_id_of_document_by_name(&self, document_name: &str) -> Option<DocumentID> {
+    pub fn get_id_of_document_by_name(&mut self, document_name: &str) -> Option<DocumentID> {
         let document_list = self.server.list_documents(&self.token)?;
         self.encryptor_decryptor.find_document_id_from_name(&document_list, document_name)
     }
 
-    pub fn download(&self, document_name: &str) -> Option<Document> {
+    pub fn download(&mut self, document_name: &str) -> Option<Document> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
 
         let encrypted_document = self.server.get_document(&self.token, &document_id)?;
@@ -78,7 +78,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         Some(document)
     }
 
-    pub fn update(&self, document_name: &str, new_document: &Document) -> Option<()> {
+    pub fn update(&mut self, document_name: &str, new_document: &Document) -> Option<()> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
 
         let document_key = self.server.get_document_key(&self.token, &document_id)?;
@@ -86,7 +86,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.server.update_document(&self.token, &document_id, &new_document_encrypted)
     }
 
-    pub fn share(&self, document_name: &str, other_organization_name: &str) -> Option<()> {
+    pub fn share(&mut self, document_name: &str, other_organization_name: &str) -> Option<()> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
 
         let encrypted_document_key = self.server.get_document_key(&self.token, &document_id)?;
@@ -96,7 +96,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.server.add_owner(&self.token, &document_id, other_organization_name, &new_encrypted_document_key)
     }
 
-    pub fn delete(&self, document_name: &str) -> Option<()> {
+    pub fn delete(&mut self, document_name: &str) -> Option<()> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
         self.server.delete_document(&self.token, &document_id)
     }

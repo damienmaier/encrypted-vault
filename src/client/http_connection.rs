@@ -46,7 +46,7 @@ impl HttpConnection {
 
 
 impl ServerConnection for HttpConnection {
-    fn create_organization(&self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &PublicKey) -> Option<()> {
+    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &PublicKey) -> Option<()> {
         self.send_payload((organization_name, users_data, public_key), CREATE_ORGANIZATION_ENDPOINT)
     }
 
@@ -54,7 +54,7 @@ impl ServerConnection for HttpConnection {
         self.send_payload_and_deserialize_json_response((organization_name, user_name1, user_name2), UNLOCK_VAULT_ENDPOINT)
     }
 
-    fn revoke_user(&self, token: &Token, user_name: &str) -> Option<()> {
+    fn revoke_user(&mut self, token: &Token, user_name: &str) -> Option<()> {
         self.send_payload((token, user_name), REVOKE_USER_ENDPOINT)
     }
 
@@ -62,35 +62,35 @@ impl ServerConnection for HttpConnection {
         self.send_payload(token, REVOKE_TOKEN_ENDPOINT)
     }
 
-    fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey) -> Option<()> {
+    fn new_document(&mut self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey) -> Option<()> {
         self.send_payload((token, encrypted_document, encrypted_key), NEW_DOCUMENT_ENDPOINT)
     }
 
-    fn list_documents(&self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDocumentNameAndKey>> {
+    fn list_documents(&mut self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDocumentNameAndKey>> {
         self.send_payload_and_deserialize_json_response(token, LIST_DOCUMENTS_ENDPOINT)
     }
 
-    fn get_document_key(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
+    fn get_document_key(&mut self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
         self.send_payload_and_deserialize_json_response((token, document_id), GET_DOCUMENT_KEY_ENDPOINT)
     }
 
-    fn get_document(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocument> {
+    fn get_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocument> {
         self.send_payload_and_deserialize_json_response((token, document_id), GET_DOCUMENT_ENDPOINT)
     }
 
-    fn update_document(&self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument) -> Option<()> {
+    fn update_document(&mut self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument) -> Option<()> {
         self.send_payload((token, document_id, encrypted_document), UPDATE_DOCUMENT_ENDPOINT)
     }
 
-    fn delete_document(&self, token: &Token, document_id: &DocumentID) -> Option<()> {
+    fn delete_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<()> {
         self.send_payload((token, document_id), DELETE_DOCUMENT_ENDPOINT)
     }
 
-    fn get_public_key_of_organization(&self, organization_name: &str) -> Option<PublicKey> {
+    fn get_public_key_of_organization(&mut self, organization_name: &str) -> Option<PublicKey> {
         self.send_payload_and_deserialize_json_response(organization_name, GET_PUBLIC_KEY_ENDPOINT)
     }
 
-    fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey) -> Option<()> {
+    fn add_owner(&mut self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey) -> Option<()> {
         self.send_payload((token, document_id, other_organization_name, encrypted_document_key), ADD_OWNER_ENDPOINT)
     }
 }

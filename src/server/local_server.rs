@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::DirEntry;
 use std::path::PathBuf;
+use std::time::Instant;
 
 use data_encoding::BASE32;
 use dryoc::{dryocbox, rng};
@@ -12,10 +13,14 @@ use crate::data::EncryptedDocument;
 use crate::server::serde_json_disk::{load, save};
 use crate::server_connection::ServerConnection;
 
-#[derive(Clone)]
+struct Client{
+    organization_name: String,
+    last_token_use_time: Instant
+}
+
 pub struct LocalServer {
     data_path: PathBuf,
-    tokens: HashMap<Token, String>,
+    tokens: HashMap<Token, Client>,
 }
 
 const ORGANIZATIONS_FOLDER_NAME: &str = "organizations";
@@ -53,19 +58,28 @@ impl LocalServer {
         self.data_path.as_path().join(DOCUMENTS_FOLDER_NAME).join(document_id)
     }
 
+    fn authenticate_organization_with_token(&mut self, token: &Token) -> Option<String> {
+        let client = self.tokens.get_mut(token)?;
+        if client.last_token_use_time.elapsed().as_secs() < 300{
+            client.last_token_use_time = Instant::now();
+            Some(client.organization_name.clone())
+        } else {
+            None
+        }
+    }
 
-    fn is_client_owner_of_document(&self, token: &Token, document_id: &DocumentID) -> Option<bool> {
-        let organization_name = self.tokens.get(token)?;
+    fn check_if_client_is_owner_of_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<bool> {
+        let organization_name = self.authenticate_organization_with_token(&token)?;
 
         Some(
-            fs::read_dir(self.organization_document_keys_directory(organization_name)).ok()?
+            fs::read_dir(self.organization_document_keys_directory(&organization_name)).ok()?
                 .any(|x| x.unwrap().file_name().to_str().unwrap() == document_id)
         )
     }
 }
 
 impl ServerConnection for LocalServer {
-    fn create_organization(&self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)
+    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey)
                            -> Option<()>
     {
         let organization = Organization { public_key: public_key.clone(), users_data: users_data.clone() };
@@ -85,15 +99,21 @@ impl ServerConnection for LocalServer {
         let user_share2: UserShare = load(&self.organization_users_directory(organization_name, user_name2))?;
 
         let token = rng::randombytes_buf(TOKEN_LENGTH_BYTES);
-        self.tokens.insert(token.clone(), organization_name.to_string());
+        self.tokens.insert(
+            token.clone(),
+            Client{
+                organization_name: organization_name.to_string(),
+                last_token_use_time: Instant::now()
+            }
+        );
         let encrypted_token = DryocBox::seal_to_vecbox(&token, &public_key).ok()?;
 
         Some((user_share1, user_share2, public_key, encrypted_token))
     }
 
-    fn revoke_user(&self, token: &Token, user_name: &str) -> Option<()> {
-        let organization_name = self.tokens.get(token)?;
-        fs::remove_file(&self.organization_users_directory(organization_name, user_name)).ok()
+    fn revoke_user(&mut self, token: &Token, user_name: &str) -> Option<()> {
+        let organization_name = self.authenticate_organization_with_token(&token)?;
+        fs::remove_file(&self.organization_users_directory(&organization_name, user_name)).ok()
     }
 
     fn revoke_token(&mut self, token: &Token) -> Option<()> {
@@ -101,31 +121,31 @@ impl ServerConnection for LocalServer {
         Some(())
     }
 
-    fn new_document(&self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
+    fn new_document(&mut self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
                     -> Option<()> {
-        let organization_name = self.tokens.get(token)?;
+        let organization_name = self.authenticate_organization_with_token(&token)?;
         let document_id = BASE32.encode(&rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES));
 
         save(encrypted_document, &self.document_path(&document_id))?;
-        save(encrypted_key, &self.organization_document_key_path(organization_name, &document_id))?;
+        save(encrypted_key, &self.organization_document_key_path(&organization_name, &document_id))?;
 
         Some(())
     }
 
-    fn list_documents(&self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDocumentNameAndKey>> {
-        let organization_name = self.tokens.get(token)?;
+    fn list_documents(&mut self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDocumentNameAndKey>> {
+        let organization_name = self.authenticate_organization_with_token(&token)?;
 
         let build_data = |dir_entry: DirEntry| -> (DocumentID, EncryptedDocumentNameAndKey) {
             let document_id_os_str = dir_entry.file_name();
             let document_id = document_id_os_str.to_str().unwrap().to_string();
             let encrypted_document: EncryptedDocument = load(&self.document_path(&document_id)).unwrap();
-            let encrypted_key = load(&self.organization_document_key_path(organization_name, &document_id)).unwrap();
+            let encrypted_key = load(&self.organization_document_key_path(&organization_name, &document_id)).unwrap();
 
             (document_id, EncryptedDocumentNameAndKey { data: encrypted_document.name, key: encrypted_key })
         };
 
         let documents_list: HashMap<DocumentID, EncryptedDocumentNameAndKey> =
-            fs::read_dir(self.organization_document_keys_directory(organization_name)).ok()?
+            fs::read_dir(self.organization_document_keys_directory(&organization_name)).ok()?
                 .map(|x| x.unwrap())
                 .filter(|dir_entry| dir_entry.file_type().unwrap().is_file())
                 .map(build_data)
@@ -134,44 +154,44 @@ impl ServerConnection for LocalServer {
         Some(documents_list)
     }
 
-    fn get_document_key(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
-        let organization_name = self.tokens.get(token)?;
-        load(&self.organization_document_key_path(organization_name, &document_id))
+    fn get_document_key(&mut self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
+        let organization_name = self.authenticate_organization_with_token(&token)?;
+        load(&self.organization_document_key_path(&organization_name, &document_id))
     }
 
-    fn get_document(&self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocument> {
-        if self.is_client_owner_of_document(&token, &document_id)? {
+    fn get_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocument> {
+        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
             load(&self.document_path(&document_id))
         } else {
             None
         }
     }
 
-    fn update_document(&self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument)
+    fn update_document(&mut self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument)
                        -> Option<()> {
-        if self.is_client_owner_of_document(&token, &document_id)? {
+        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
             save(encrypted_document, &self.document_path(&document_id))
         } else {
             None
         }
     }
 
-    fn delete_document(&self, token: &Token, document_id: &DocumentID) -> Option<()> {
-        if self.is_client_owner_of_document(&token, &document_id)? {
-            let organization_name = self.tokens.get(token)?;
-            fs::remove_file(&self.organization_document_key_path(organization_name, &document_id)).ok()
+    fn delete_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<()> {
+        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
+            let organization_name = self.authenticate_organization_with_token(&token)?;
+            fs::remove_file(&self.organization_document_key_path(&organization_name, &document_id)).ok()
         } else {
             None
         }
     }
 
-    fn get_public_key_of_organization(&self, organization_name: &str) -> Option<dryocbox::PublicKey> {
+    fn get_public_key_of_organization(&mut self, organization_name: &str) -> Option<dryocbox::PublicKey> {
         load(&self.organization_public_key_path(organization_name))
     }
 
-    fn add_owner(&self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
+    fn add_owner(&mut self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
                  -> Option<()> {
-        if self.is_client_owner_of_document(&token, &document_id)? {
+        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
             save(&encrypted_document_key, &self.organization_document_key_path(other_organization_name, &document_id))
         } else {
             None

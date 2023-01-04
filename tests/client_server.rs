@@ -39,7 +39,7 @@ fn set_up_server_with_organizations() -> HttpConnection {
     let server_port = thread_rng().gen_range(FIRST_ALLOWED_TCP_PORT..LAST_TCP_PORT);
     thread::spawn(move || run_http_server(server_port, server_vault_data_directory));
 
-    let server = HttpConnection::new(server_port);
+    let mut server = HttpConnection::new(server_port);
 
     let mut as_user_credentials = HashMap::new();
     as_user_credentials.insert("Glados".to_string(), "gladospassword".to_string());
@@ -47,7 +47,7 @@ fn set_up_server_with_organizations() -> HttpConnection {
     as_user_credentials.insert("Wheatley".to_string(), "weathleypassword".to_string());
     as_user_credentials.insert("Cave".to_string(), "cavepassword".to_string());
 
-    controller::create_organization(&server, "Aperture Science", &as_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
+    controller::create_organization(&mut server, "Aperture Science", &as_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
 
 
     let mut sw_user_credentials = HashMap::new();
@@ -56,14 +56,14 @@ fn set_up_server_with_organizations() -> HttpConnection {
     sw_user_credentials.insert("Leila".to_string(), "leilapassword".to_string());
     sw_user_credentials.insert("R2D2".to_string(), "r2d2password".to_string());
 
-    controller::create_organization(&server, "Star Wars", &sw_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
+    controller::create_organization(&mut server, "Star Wars", &sw_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
 
 
     let mut lotr_user_credentials = HashMap::new();
     lotr_user_credentials.insert("Gandalf".to_string(), "gandalfpassword".to_string());
     lotr_user_credentials.insert("Frodo".to_string(), "frodopassword".to_string());
 
-    controller::create_organization(&server, "LotR", &lotr_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
+    controller::create_organization(&mut server, "LotR", &lotr_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
 
     server
 }
@@ -88,7 +88,7 @@ fn authenticate_clients_for_server<A: ServerConnection + Clone>(server: &mut A) 
 
 fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnection>> {
     let mut server = set_up_server_with_organizations();
-    let client_controllers = authenticate_clients_for_server(&mut server);
+    let mut client_controllers = authenticate_clients_for_server(&mut server);
 
     let document = Document {
         name: "aperture science 1".to_string(),
@@ -127,7 +127,7 @@ fn unlock_vault() {
 #[test]
 fn delete_user() {
     let mut server = set_up_server_with_organizations();
-    let client_controller =
+    let mut client_controller =
         Controller::unlock_vault_for_organization(
             &mut server,
             "Star Wars",
@@ -151,7 +151,7 @@ fn delete_user() {
 #[test]
 fn delete_user_wrong_token() {
     let mut server = set_up_server_with_organizations();
-    let client_controllers = authenticate_clients_for_server(&mut server);
+    let mut client_controllers = authenticate_clients_for_server(&mut server);
 
     assert!(client_controllers[0].revoke_user("Darth Vador").is_none());
 
@@ -176,7 +176,7 @@ fn revoke_token() {
 
 #[test]
 fn list_documents() {
-    let client_controllers = set_up_server_with_organizations_and_documents();
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
 
     let organization0_document_names = client_controllers[0].list_document_names().unwrap();
     assert_eq!(3, organization0_document_names.len());
@@ -195,7 +195,7 @@ fn list_documents() {
 
 #[test]
 fn get_document() {
-    let client_controllers = set_up_server_with_organizations_and_documents();
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
 
     let document1 = client_controllers[0].download("aperture science 1").unwrap();
     assert_eq!(document1, Document { name: "aperture science 1".to_string(), content: "aperture science content 1".to_string() });
@@ -215,7 +215,7 @@ fn get_document() {
 
 #[test]
 fn update_document() {
-    let client_controllers = set_up_server_with_organizations_and_documents();
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
 
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
     client_controllers[0].update("aperture science 1", &new_document).unwrap();
@@ -228,7 +228,7 @@ fn update_document() {
 
 #[test]
 fn update_shared_document() {
-    let client_controllers = set_up_server_with_organizations_and_documents();
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
 
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
     client_controllers[0].update("aperture science star wars shared", &new_document).unwrap();
@@ -241,7 +241,7 @@ fn update_shared_document() {
 
 #[test]
 fn delete_document() {
-    let client_controllers = set_up_server_with_organizations_and_documents();
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
 
     client_controllers[0].delete("aperture science 1").unwrap();
 
@@ -251,7 +251,7 @@ fn delete_document() {
 
 #[test]
 fn delete_shared_document() {
-    let client_controllers = set_up_server_with_organizations_and_documents();
+    let mut client_controllers = set_up_server_with_organizations_and_documents();
 
     client_controllers[0].delete("aperture science star wars shared").unwrap();
 

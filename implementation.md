@@ -12,7 +12,8 @@ As the client organization must be able to access the vault from any device, the
 |-------------------------|-------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------|
 | Client account creation | Organization name, user names, user salts, encrypted private key shares, public key |                                                                                            | no                            |                                                                  |
 | Unlock vault            | Organization name, 2 user names                                                     | 2 encrypted private key shares, 2 salts, encrypted token, public keys of all organizations | no                            |                                                                  |
-| Revoke user             | User name                                                                           |                                                                                            | yes                           | At least 2 users must remain after the revocation                |
+| Revoke user             | User name                                                                           |                                                                                            | yes                           |                                                                  |
+| Revoke token            |                                                                                     |                                                                                            | yes                           |                                                                  |
 | New document            | Encrypted document key, encrypted document name, encrypted document content         |                                                                                            | yes                           |                                                                  |
 | List documents          |                                                                                     | Document IDs, encrypted document keys, encrypted document names                            | yes                           |                                                                  |
 | Get document key        | Document ID                                                                         | Encrypted document key                                                                     | yes                           | The client associated to the token must be owner of the document |
@@ -88,6 +89,8 @@ Each client organization that has unlocked the vault has an associated **token**
 When the server receives a vault unlock request from a client, it generates a random token and keeps it in memory, along with the client organization name. It encrypts the token with the client organization public key and sends the encrypted token to the client.
 
 By providing the decrypted token in its subsequent requests, the client proves its identity.
+
+When the client stops, it requests the server to revoke its token. For an additional security, a token is also automatically revoked by the server if it is not used for 5 minutes.
 
 ## Documents
 

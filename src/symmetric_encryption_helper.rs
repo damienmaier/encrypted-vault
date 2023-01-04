@@ -3,7 +3,7 @@ use dryoc::dryocsecretbox::NewByteArray;
 use serde::Deserialize;
 use serde::Serialize;
 
-pub const SYMMETRIC_KEY_LENGHT_BYTES: usize = 32;
+pub const SYMMETRIC_KEY_LENGTH_BYTES: usize = 32;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SymEncryptedData {

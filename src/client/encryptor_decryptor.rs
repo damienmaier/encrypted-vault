@@ -6,7 +6,7 @@ use dryoc::dryocsecretbox::NewByteArray;
 use crate::data::{Document, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey};
 use crate::data::EncryptedDocument;
 use crate::symmetric_encryption_helper::SymEncryptedData;
-use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
+use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
 pub struct ClientEncryptorDecryptor {
     pub key_pair: dryocbox::KeyPair,
@@ -61,7 +61,7 @@ impl ClientEncryptorDecryptor {
     fn decrypt_document_key(&self, encrypted_key: &EncryptedDocumentKey) -> dryocsecretbox::Key {
         let symmetric_key_vec = encrypted_key.unseal_to_vec(&self.key_pair).unwrap();
 
-        <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(symmetric_key_vec).unwrap().into()
+        <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(symmetric_key_vec).unwrap().into()
     }
 }
 

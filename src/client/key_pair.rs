@@ -9,7 +9,7 @@ use sharks;
 
 use crate::data::UserShare;
 use crate::symmetric_encryption_helper::SymEncryptedData;
-use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGHT_BYTES;
+use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
 
 const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
@@ -19,7 +19,7 @@ const SALT_LENGTH_BYTES: usize = 16;
 
 pub fn argon_config() -> pwhash::Config {
 
-    pwhash::Config::sensitive().with_salt_length(SYMMETRIC_KEY_LENGHT_BYTES)
+    pwhash::Config::sensitive().with_salt_length(SYMMETRIC_KEY_LENGTH_BYTES)
 }
 
 
@@ -60,7 +60,7 @@ pub fn retrieve_private_key(
 
     let recovered_secret = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY).recover([&share1, &share2]).unwrap();
 
-    <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(recovered_secret).unwrap().into()
+    <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(recovered_secret).unwrap().into()
 }
 
 fn get_key_from_password(password: &str, salt: &pwhash::Salt, argon_config: &pwhash::Config) -> dryocsecretbox::Key {
@@ -68,7 +68,7 @@ fn get_key_from_password(password: &str, salt: &pwhash::Salt, argon_config: &pwh
         .unwrap()
         .into_parts();
 
-    <[u8; SYMMETRIC_KEY_LENGHT_BYTES]>::try_from(hash).unwrap().into()
+    <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(hash).unwrap().into()
 }
 
 fn decrypt_share_with_password(share: &UserShare, password: &str, argon_config: &pwhash::Config) -> sharks::Share {

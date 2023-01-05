@@ -2,15 +2,19 @@
 
 ## Client server communication
 
-All communications between the client and the server are done using an HTTPS API.
+All communications between the client and the server are done using an HTTPS API, with TLS 1.3.
 
-As the client organization must be able to access the vault from any device, the server uses a certificate issued by a recognized certificate authority.
+We use a root self-signed X.509 certificate, and a server certificate signed by the root certificate.
+
+The server has access to the server certificate and its associated private key, in order to authenticate himself with the client.
+
+The client has access to the root certificate, and he only accepts to connect to the server if the server uses a certificate signed by the root certificate.
 
 ## HTTP API
 
 | Action                  | Data sent with the request                                                                                | Data sent with the response                                                                | Authentication token required | Restriction                                                      |
 |-------------------------|-----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------|
-| Client account creation | Organization name, user names, user salts, encrypted private key shares, public key, argon2 configuration |                                                                                            | no                            |                                                                  |
+| Client account creation | Organization name, user names, user salts, encrypted private key shares, public key, argon2 configuration |                                                                                            | no                            | The organization name must not already exist                     |
 | Unlock vault            | Organization name, 2 user names                                                                           | 2 encrypted private key shares, 2 salts, argon2 configuration, encrypted token, public key | no                            |                                                                  |
 | Revoke user             | User name                                                                                                 |                                                                                            | yes                           |                                                                  |
 | Revoke token            |                                                                                                           |                                                                                            | yes                           |                                                                  |

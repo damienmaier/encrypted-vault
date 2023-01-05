@@ -1,11 +1,11 @@
 # Encrypted Vault
-This is a web application that provides an online vault for organizations that need to store very sensitive documents.
+This is a client-server application that provides an online vault for organizations that need to store very sensitive documents.
 
-The web server is written in Rust. The client side code is written in WebAssembly compiled Rust that runs in the browser.
+The client and the server are both written in Rust.
 
 ## Description and usage
 
-A single server (online vault) can be accessed by several client organizations. Each organization can store documents on the server.
+A single server (online vault) can be used by several client organizations. Each organization can store documents on the server.
 
 ### Documents storage on the server
 - The server never sees the documents in clear and is not able to recover them (assuming “good” passwords).
@@ -15,7 +15,7 @@ A single server (online vault) can be accessed by several client organizations. 
     1. The company sends its company name to the server. 
     2. Then, two members of the company (out of n) enter their credentials (username + password) to unlock the vault.
 - The client does not need to enter more than one password per member.
-- Clients can connect to the vault from any computer and change device as they want.
+- Clients can connect to the vault from any computer and change device as they want. No data is stored on the client side.
 - A client can revoke one of its users. This does not require the re-encryption of the documents.
 ### Documents access
 - Each document on the server is owned by one or several clients.

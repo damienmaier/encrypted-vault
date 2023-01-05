@@ -1,8 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use rustls::Certificate;
-use rustls::PrivateKey;
-
 
 pub fn get_certificate_der_from_pem_file(pem_file_path: &PathBuf) -> Vec<u8> {
     let data = fs::read(pem_file_path).unwrap();

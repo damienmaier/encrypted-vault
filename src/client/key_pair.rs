@@ -11,7 +11,6 @@ use crate::data::UserShare;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
-
 const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
 const SALT_LENGTH_BYTES: usize = 16;
 

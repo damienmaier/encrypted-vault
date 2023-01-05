@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+
 use dryoc::{dryocbox, pwhash};
+
 use crate::client::encryptor_decryptor::OrganizationEncryptorDecryptor;
 use crate::client::key_pair::{create_protected_key_pair, retrieve_private_key};
 use crate::data::{Document, DocumentID, EncryptedDocumentNameAndKey, Token};
 use crate::server_connection::ServerConnection;
-
 
 pub fn create_organization<A: ServerConnection>(server: &mut A, organization_name: &str, user_credentials: &HashMap<String, String>, argon_config: &pwhash::Config)
                                                 -> Option<()> {

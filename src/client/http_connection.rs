@@ -8,12 +8,13 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::{config, utils};
-use crate::config::{ADD_OWNER_ENDPOINT, CREATE_ORGANIZATION_ENDPOINT, DELETE_DOCUMENT_ENDPOINT, GET_DOCUMENT_ENDPOINT, GET_DOCUMENT_KEY_ENDPOINT, GET_PUBLIC_KEY_ENDPOINT, LIST_DOCUMENTS_ENDPOINT, NEW_DOCUMENT_ENDPOINT, REVOKE_TOKEN_ENDPOINT, REVOKE_USER_ENDPOINT, UNLOCK_VAULT_ENDPOINT, UPDATE_DOCUMENT_ENDPOINT};
+use crate::config::ROOT_CERTIFICATE_LOCATION;
 use crate::data::{DocumentID, EncryptedDocument, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
+use crate::server::http_server::{ADD_OWNER_ENDPOINT, CREATE_ORGANIZATION_ENDPOINT, DELETE_DOCUMENT_ENDPOINT, GET_DOCUMENT_ENDPOINT, GET_DOCUMENT_KEY_ENDPOINT, GET_PUBLIC_KEY_ENDPOINT, LIST_DOCUMENTS_ENDPOINT, NEW_DOCUMENT_ENDPOINT, REVOKE_TOKEN_ENDPOINT, REVOKE_USER_ENDPOINT, UNLOCK_VAULT_ENDPOINT, UPDATE_DOCUMENT_ENDPOINT};
 use crate::server_connection::ServerConnection;
 
 fn http_client_configured_for_tls() -> Client {
-    let der_certificate = utils::get_certificate_der_from_pem_file(&"certificate_for_client/ca.pem".into());
+    let der_certificate = utils::get_certificate_der_from_pem_file(&ROOT_CERTIFICATE_LOCATION.into());
     let certificate = reqwest::Certificate::from_der(&der_certificate).unwrap();
     Client::builder()
         .add_root_certificate(certificate)

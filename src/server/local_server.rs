@@ -30,6 +30,8 @@ const USERS_FOLDER_NAME: &str = "users";
 const DOCUMENTS_KEYS_FOLDER_NAME: &str = "documents_keys";
 const DOCUMENTS_FOLDER_NAME: &str = "documents";
 
+const TOKEN_INACTIVITY_TIMEOUT_SECONDS: u64 = 300;
+
 impl LocalServer {
     pub fn new(data_path: &PathBuf) -> LocalServer {
         LocalServer { data_path: data_path.clone(), tokens: HashMap::new() }
@@ -65,7 +67,7 @@ impl LocalServer {
 
     fn authenticate_organization_with_token(&mut self, token: &Token) -> Option<String> {
         let client = self.tokens.get_mut(token)?;
-        if client.last_token_use_time.elapsed().as_secs() < 300{
+        if client.last_token_use_time.elapsed().as_secs() < TOKEN_INACTIVITY_TIMEOUT_SECONDS {
             client.last_token_use_time = Instant::now();
             Some(client.organization_name.clone())
         } else {

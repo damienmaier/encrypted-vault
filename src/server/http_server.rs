@@ -5,15 +5,28 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use axum::{routing::post, Router, Json};
 use axum::extract::{State};
+use axum_server::tls_rustls::RustlsConfig;
 use dryoc::{dryocbox, pwhash};
 use reqwest::StatusCode;
+use rustls::{Certificate, PrivateKey, ServerConfig};
 use crate::config::{ADD_OWNER_ENDPOINT, CREATE_ORGANIZATION_ENDPOINT, DELETE_DOCUMENT_ENDPOINT, GET_DOCUMENT_ENDPOINT, GET_DOCUMENT_KEY_ENDPOINT, GET_PUBLIC_KEY_ENDPOINT, LIST_DOCUMENTS_ENDPOINT, NEW_DOCUMENT_ENDPOINT, REVOKE_TOKEN_ENDPOINT, REVOKE_USER_ENDPOINT, UNLOCK_VAULT_ENDPOINT, UPDATE_DOCUMENT_ENDPOINT};
 use crate::data::{DocumentID, EncryptedDocument, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
 use crate::server::local_server::LocalServer;
 use crate::server_connection::ServerConnection;
+use crate::utils;
 
 #[tokio::main]
 pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
+    let config = ServerConfig::builder()
+        .with_safe_default_cipher_suites()
+        .with_safe_default_kx_groups()
+        .with_protocol_versions(&[&rustls::version::TLS13]).unwrap()
+        .with_no_client_auth()
+        .with_single_cert(
+            vec![Certificate(utils::get_certificate_der_from_pem_file(&"certificate_for_server/server_certificate.pem".into()))],
+            PrivateKey(utils::get_key_der_from_pem_file(&"certificate_for_server/server_certificate_key.key".into())),
+        ).unwrap();
+
     let server_state = Arc::new(Mutex::new(
         LocalServer::new(&PathBuf::from(data_storage_directory))
     ));
@@ -34,7 +47,9 @@ pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
         .with_state(server_state);
 
 
-    axum::Server::bind(&SocketAddr::new(V4(Ipv4Addr::new(0, 0, 0, 0)), port))
+    axum_server::bind_rustls(
+        SocketAddr::new(V4(Ipv4Addr::new(0, 0, 0, 0)), port),
+        RustlsConfig::from_config(Arc::new(config)))
         .serve(app.into_make_service())
         .await
         .unwrap();
@@ -172,11 +187,11 @@ async fn add_owner_handler(
     )
 }
 
-fn convert_option_to_handler_result<A>(option: Option<A>) ->  Result<A, StatusCode>{
+fn convert_option_to_handler_result<A>(option: Option<A>) -> Result<A, StatusCode> {
     option.ok_or(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-fn json_handler_result<A>(option: Option<A>) ->  Result<Json<A>, StatusCode>{
+fn json_handler_result<A>(option: Option<A>) -> Result<Json<A>, StatusCode> {
     Ok(
         Json(
             convert_option_to_handler_result(option)?

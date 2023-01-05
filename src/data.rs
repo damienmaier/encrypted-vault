@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use dryoc::{dryocbox, pwhash};
 use serde::Deserialize;
 use serde::Serialize;

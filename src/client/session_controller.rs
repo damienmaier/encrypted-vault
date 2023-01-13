@@ -1,19 +1,9 @@
-use std::collections::HashMap;
-
-use dryoc::{dryocbox, pwhash};
+use dryoc::dryocbox;
 
 use crate::client::encryptor_decryptor::OrganizationEncryptorDecryptor;
-use crate::client::key_pair::{create_protected_key_pair, retrieve_private_key};
+use crate::client::key_pair::retrieve_private_key;
 use crate::data::{Document, DocumentID, EncryptedDocumentNameAndKey, Token};
 use crate::server_connection::ServerConnection;
-
-pub fn create_organization<A: ServerConnection>(server: &mut A, organization_name: &str, user_credentials: &HashMap<String, String>, argon_config: &pwhash::Config)
-                                                -> Option<()> {
-    let (user_encrypted_shares, public_key) =
-        create_protected_key_pair(&user_credentials, &argon_config);
-
-    server.create_organization(organization_name, &user_encrypted_shares, &public_key, &argon_config)
-}
 
 pub struct Controller<A: ServerConnection + Clone> {
     server: A,
@@ -56,14 +46,14 @@ impl<A: ServerConnection + Clone> Controller<A> {
         let encrypted_document_names = self.server.list_documents(&self.token)?;
         let document_names = encrypted_document_names
             .iter()
-            .map(|(.., EncryptedDocumentNameAndKey{data, key})|
-            self.encryptor_decryptor.decrypt_document_name(data, key))
+            .map(|(.., EncryptedDocumentNameAndKey { data, key })|
+                self.encryptor_decryptor.decrypt_document_name(data, key))
             .collect();
         Some(document_names)
     }
 
 
-    pub fn get_id_of_document_by_name(&mut self, document_name: &str) -> Option<DocumentID> {
+    fn get_id_of_document_by_name(&mut self, document_name: &str) -> Option<DocumentID> {
         let document_list = self.server.list_documents(&self.token)?;
         self.encryptor_decryptor.find_document_id_from_name(&document_list, document_name)
     }
@@ -102,7 +92,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
     }
 }
 
-impl<A: ServerConnection + Clone> Drop for Controller<A>{
+impl<A: ServerConnection + Clone> Drop for Controller<A> {
     fn drop(&mut self) {
         self.revoke_token();
     }

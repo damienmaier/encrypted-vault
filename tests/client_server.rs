@@ -1,5 +1,4 @@
 #[cfg(test)]
-use std::collections::HashMap;
 use std::path::Path;
 use std::thread;
 
@@ -7,9 +6,9 @@ use dryoc::pwhash;
 use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
 
-use vault::client::controller;
-use vault::client::controller::Controller;
 use vault::client::http_connection::HttpConnection;
+use vault::client::organization_creation::{OrganizationBuilder, OrganizationCreationError};
+use vault::client::session_controller::Controller;
 use vault::data::Document;
 use vault::server::http_server::run_http_server;
 use vault::server_connection::ServerConnection;
@@ -39,40 +38,41 @@ fn set_up_server_with_organizations() -> HttpConnection {
     let server_port = thread_rng().gen_range(FIRST_ALLOWED_TCP_PORT..LAST_TCP_PORT);
     thread::spawn(move || run_http_server(server_port, server_vault_data_directory));
 
+
     let mut server = HttpConnection::new(server_port);
 
-    let mut as_user_credentials = HashMap::new();
-    as_user_credentials.insert("Glados".to_string(), "gladospassword".to_string());
-    as_user_credentials.insert("Chell".to_string(), "chellpassword".to_string());
-    as_user_credentials.insert("Wheatley".to_string(), "weathleypassword".to_string());
-    as_user_credentials.insert("Cave".to_string(), "cavepassword".to_string());
-
-    controller::create_organization(&mut server, "Aperture Science", &as_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
-
-
-    let mut sw_user_credentials = HashMap::new();
-    sw_user_credentials.insert("Darth Vador".to_string(), "darthvadorpassword".to_string());
-    sw_user_credentials.insert("Luke".to_string(), "lukepassword".to_string());
-    sw_user_credentials.insert("Leila".to_string(), "leilapassword".to_string());
-    sw_user_credentials.insert("R2D2".to_string(), "r2d2password".to_string());
-
-    controller::create_organization(&mut server, "Star Wars", &sw_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
+    OrganizationBuilder::new("ApertureScience", &fast_and_unsafe_argon_config())
+        .unwrap()
+        .add_user("Glados", "glados80m32Z$GIdKGK*M").unwrap()
+        .add_user("Chell", "chell80m32Z$GIdKGK*M").unwrap()
+        .add_user("Wheatley", "wheatley80m32Z$GIdKGK*M").unwrap()
+        .add_user("Cave", "cave80m32Z$GIdKGK*M").unwrap()
+        .create_organization(&mut server).unwrap();
 
 
-    let mut lotr_user_credentials = HashMap::new();
-    lotr_user_credentials.insert("Gandalf".to_string(), "gandalfpassword".to_string());
-    lotr_user_credentials.insert("Frodo".to_string(), "frodopassword".to_string());
+    OrganizationBuilder::new("StarWars", &fast_and_unsafe_argon_config())
+        .unwrap()
+        .add_user("DarthVador", "darthvador80m32Z$GIdKGK*M").unwrap()
+        .add_user("Luke", "luke80m32Z$GIdKGK*M").unwrap()
+        .add_user("Leila", "leila80m32Z$GIdKGK*M").unwrap()
+        .add_user("R2D2", "r2d280m32Z$GIdKGK*M").unwrap()
+        .create_organization(&mut server).unwrap();
 
-    controller::create_organization(&mut server, "LotR", &lotr_user_credentials, &fast_and_unsafe_argon_config()).unwrap();
+
+    OrganizationBuilder::new("LotR", &fast_and_unsafe_argon_config())
+        .unwrap()
+        .add_user("Gandalf", "gandalf80m32Z$GIdKGK*M").unwrap()
+        .add_user("Frodo", "frodo80m32Z$GIdKGK*M").unwrap()
+        .create_organization(&mut server).unwrap();
 
     server
 }
 
 fn authenticate_clients_for_server<A: ServerConnection + Clone>(server: &mut A) -> Vec<Controller<A>> {
     vec![
-        ("Aperture Science", "Chell", "chellpassword", "Cave", "cavepassword"),
-        ("Star Wars", "Luke", "lukepassword", "Leila", "leilapassword"),
-        ("LotR", "Gandalf", "gandalfpassword", "Frodo", "frodopassword"),
+        ("ApertureScience", "Chell", "chell80m32Z$GIdKGK*M", "Cave", "cave80m32Z$GIdKGK*M"),
+        ("StarWars", "Luke", "luke80m32Z$GIdKGK*M", "Leila", "leila80m32Z$GIdKGK*M"),
+        ("LotR", "Gandalf", "gandalf80m32Z$GIdKGK*M", "Frodo", "frodo80m32Z$GIdKGK*M"),
     ]
         .iter()
         .map(|(organization, user1, password1, user2, password2)|
@@ -106,7 +106,7 @@ fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnec
         content: "shared content".to_string(),
     };
     client_controllers[0].upload(&document);
-    client_controllers[0].share("aperture science star wars shared", "Star Wars");
+    client_controllers[0].share("aperture science star wars shared", "StarWars");
 
     let document = Document {
         name: "star wars".to_string(),
@@ -118,16 +118,17 @@ fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnec
 }
 
 #[test]
-fn create_organization_same_name() {
+fn create_organization_same_organization_name() {
     let mut server = set_up_server_with_organizations();
 
-    let mut user_credentials = HashMap::new();
-    user_credentials.insert("user1".to_string(), "password1".to_string());
-    user_credentials.insert("user2".to_string(), "password2".to_string());
-    let controller_option =
-        controller::create_organization(&mut server, "Aperture Science", &user_credentials, &fast_and_unsafe_argon_config());
+    let result = OrganizationBuilder::new("ApertureScience", &fast_and_unsafe_argon_config())
+        .unwrap()
+        .add_user("user1", "80m32Z$GIdKGK*M").unwrap()
+        .add_user("user2", "80m32Z$GIdKGK*M").unwrap()
+        .create_organization(&mut server);
 
-    assert!(controller_option.is_none());
+
+    assert!(matches!(result, Err(OrganizationCreationError::ServerError)));
 }
 
 #[test]
@@ -142,18 +143,18 @@ fn delete_user() {
     let mut client_controller =
         Controller::unlock_vault_for_organization(
             &mut server,
-            "Star Wars",
-            "Luke", "lukepassword",
-            "Leila", "leilapassword",
+            "StarWars",
+            "Luke", "luke80m32Z$GIdKGK*M",
+            "Leila", "leila80m32Z$GIdKGK*M",
         ).unwrap();
 
-    client_controller.revoke_user("Darth Vador").unwrap();
+    client_controller.revoke_user("DarthVador").unwrap();
 
     let controller_option = Controller::unlock_vault_for_organization(
         &mut server,
-        "Star Wars",
-        "Darth Vador", "darthvadorpassword",
-        "Leila", "leilapassword",
+        "StarWars",
+        "DarthVador", "darthvador80m32Z$GIdKGK*M",
+        "Leila", "leila80m32Z$GIdKGK*M",
     );
     assert!(controller_option.is_none());
 }
@@ -163,13 +164,13 @@ fn delete_user_wrong_token() {
     let mut server = set_up_server_with_organizations();
     let mut client_controllers = authenticate_clients_for_server(&mut server);
 
-    assert!(client_controllers[0].revoke_user("Darth Vador").is_none());
+    assert!(client_controllers[0].revoke_user("DarthVador").is_none());
 
     Controller::unlock_vault_for_organization(
         &mut server,
-        "Star Wars",
-        "Luke", "lukepassword",
-        "Leila", "leilapassword",
+        "StarWars",
+        "Luke", "luke80m32Z$GIdKGK*M",
+        "Leila", "leila80m32Z$GIdKGK*M",
     ).unwrap();
 }
 

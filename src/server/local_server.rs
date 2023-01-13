@@ -2,25 +2,21 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::DirEntry;
 use std::path::PathBuf;
-use std::time::Instant;
 
 use data_encoding::BASE32;
 use dryoc::{dryocbox, pwhash, rng};
 use dryoc::dryocbox::DryocBox;
 
-use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, TOKEN_LENGTH_BYTES, UserShare};
+use crate::data::{DOCUMENT_ID_LENGTH_BYTES, DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
 use crate::data::EncryptedDocument;
 use crate::server::serde_json_disk::{load, save};
+use crate::server::session_manager::SessionManager;
 use crate::server_connection::ServerConnection;
 
-struct Client{
-    organization_name: String,
-    last_token_use_time: Instant
-}
 
 pub struct LocalServer {
     data_path: PathBuf,
-    tokens: HashMap<Token, Client>,
+    sessions: SessionManager
 }
 
 const ORGANIZATIONS_FOLDER_NAME: &str = "organizations";
@@ -30,11 +26,11 @@ const USERS_FOLDER_NAME: &str = "users";
 const DOCUMENTS_KEYS_FOLDER_NAME: &str = "documents_keys";
 const DOCUMENTS_FOLDER_NAME: &str = "documents";
 
-const TOKEN_INACTIVITY_TIMEOUT_SECONDS: u64 = 300;
+const SESSION_TIMEOUT: u64 = 300;
 
 impl LocalServer {
     pub fn new(data_path: &PathBuf) -> LocalServer {
-        LocalServer { data_path: data_path.clone(), tokens: HashMap::new() }
+        LocalServer { data_path: data_path.clone(), sessions: SessionManager::new(SESSION_TIMEOUT) }
     }
 
     fn organization_directory(&self, organization_name: &str) -> PathBuf {
@@ -65,18 +61,9 @@ impl LocalServer {
         self.data_path.as_path().join(DOCUMENTS_FOLDER_NAME).join(document_id)
     }
 
-    fn authenticate_organization_with_token(&mut self, token: &Token) -> Option<String> {
-        let client = self.tokens.get_mut(token)?;
-        if client.last_token_use_time.elapsed().as_secs() < TOKEN_INACTIVITY_TIMEOUT_SECONDS {
-            client.last_token_use_time = Instant::now();
-            Some(client.organization_name.clone())
-        } else {
-            None
-        }
-    }
 
-    fn check_if_client_is_owner_of_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<bool> {
-        let organization_name = self.authenticate_organization_with_token(&token)?;
+    fn is_client_owner_of_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<bool> {
+        let organization_name = self.sessions.get_organization_name_from_token(&token)?;
 
         Some(
             fs::read_dir(self.organization_document_keys_directory(&organization_name)).ok()?
@@ -86,7 +73,12 @@ impl LocalServer {
 }
 
 impl ServerConnection for LocalServer {
-    fn create_organization(&mut self, organization_name: &str, users_data: &HashMap<String, UserShare>, public_key: &dryocbox::PublicKey, argon2_config: &pwhash::Config)
+    fn create_organization(&mut self,
+                           organization_name: &str,
+                           users_data: &HashMap<String, UserShare>,
+                           public_key: &dryocbox::PublicKey,
+                           argon2_config: &pwhash::Config
+    )
                            -> Option<()>
     {
         save(public_key, &self.organization_public_key_path(organization_name), false)?;
@@ -106,32 +98,25 @@ impl ServerConnection for LocalServer {
         let user_share1: UserShare = load(&self.organization_users_directory(organization_name, user_name1))?;
         let user_share2: UserShare = load(&self.organization_users_directory(organization_name, user_name2))?;
 
-        let token = rng::randombytes_buf(TOKEN_LENGTH_BYTES);
-        self.tokens.insert(
-            token.clone(),
-            Client{
-                organization_name: organization_name.to_string(),
-                last_token_use_time: Instant::now()
-            }
-        );
+        let token = self.sessions.new_session(organization_name);
         let encrypted_token = DryocBox::seal_to_vecbox(&token, &public_key).ok()?;
 
         Some((user_share1, user_share2, argon_config, public_key, encrypted_token))
     }
 
     fn revoke_user(&mut self, token: &Token, user_name: &str) -> Option<()> {
-        let organization_name = self.authenticate_organization_with_token(&token)?;
+        let organization_name = self.sessions.get_organization_name_from_token(&token)?;
         fs::remove_file(&self.organization_users_directory(&organization_name, user_name)).ok()
     }
 
     fn revoke_token(&mut self, token: &Token) -> Option<()> {
-        self.tokens.remove(token);
+        self.sessions.end_session(token);
         Some(())
     }
 
     fn new_document(&mut self, token: &Token, encrypted_document: &EncryptedDocument, encrypted_key: &EncryptedDocumentKey)
                     -> Option<()> {
-        let organization_name = self.authenticate_organization_with_token(&token)?;
+        let organization_name = self.sessions.get_organization_name_from_token(&token)?;
         let document_id = BASE32.encode(&rng::randombytes_buf(DOCUMENT_ID_LENGTH_BYTES));
 
         save(encrypted_document, &self.document_path(&document_id), false)?;
@@ -141,7 +126,7 @@ impl ServerConnection for LocalServer {
     }
 
     fn list_documents(&mut self, token: &Token) -> Option<HashMap<DocumentID, EncryptedDocumentNameAndKey>> {
-        let organization_name = self.authenticate_organization_with_token(&token)?;
+        let organization_name = self.sessions.get_organization_name_from_token(&token)?;
 
         let build_data = |dir_entry: DirEntry| -> (DocumentID, EncryptedDocumentNameAndKey) {
             let document_id_os_str = dir_entry.file_name();
@@ -163,12 +148,12 @@ impl ServerConnection for LocalServer {
     }
 
     fn get_document_key(&mut self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocumentKey> {
-        let organization_name = self.authenticate_organization_with_token(&token)?;
+        let organization_name = self.sessions.get_organization_name_from_token(&token)?;
         load(&self.organization_document_key_path(&organization_name, &document_id))
     }
 
     fn get_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<EncryptedDocument> {
-        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
+        if self.is_client_owner_of_document(&token, &document_id)? {
             load(&self.document_path(&document_id))
         } else {
             None
@@ -177,7 +162,7 @@ impl ServerConnection for LocalServer {
 
     fn update_document(&mut self, token: &Token, document_id: &DocumentID, encrypted_document: &EncryptedDocument)
                        -> Option<()> {
-        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
+        if self.is_client_owner_of_document(&token, &document_id)? {
             save(encrypted_document, &self.document_path(&document_id), true)
         } else {
             None
@@ -185,8 +170,8 @@ impl ServerConnection for LocalServer {
     }
 
     fn delete_document(&mut self, token: &Token, document_id: &DocumentID) -> Option<()> {
-        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
-            let organization_name = self.authenticate_organization_with_token(&token)?;
+        if self.is_client_owner_of_document(&token, &document_id)? {
+            let organization_name = self.sessions.get_organization_name_from_token(&token)?;
             fs::remove_file(&self.organization_document_key_path(&organization_name, &document_id)).ok()
         } else {
             None
@@ -199,7 +184,7 @@ impl ServerConnection for LocalServer {
 
     fn add_owner(&mut self, token: &Token, document_id: &DocumentID, other_organization_name: &str, encrypted_document_key: &EncryptedDocumentKey)
                  -> Option<()> {
-        if self.check_if_client_is_owner_of_document(&token, &document_id)? {
+        if self.is_client_owner_of_document(&token, &document_id)? {
             save(&encrypted_document_key, &self.organization_document_key_path(other_organization_name, &document_id), false)
         } else {
             None

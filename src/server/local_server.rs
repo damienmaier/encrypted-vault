@@ -168,7 +168,7 @@ impl ServerConnection for LocalServer {
             .filter_map(|dir_entry_result_result| dir_entry_result_result.ok())
             // filter out dir entries that are not a file
             .filter(|dir_entry| {
-                if let Ok(entry_type) = dir_entry.file_type(){
+                if let Ok(entry_type) = dir_entry.file_type() {
                     entry_type.is_file()
                 } else {
                     false
@@ -237,17 +237,22 @@ mod tests {
     use dryoc::{dryocbox, pwhash};
     use uuid::Uuid;
     use crate::data::{DocumentID, EncryptedDocument, random_encrypted_document_key, Token, UserShare};
+    use crate::error::VaultError;
     use crate::server::local_server::LocalServer;
     use crate::server_connection::ServerConnection;
 
-    fn create_server_with_organizations_and_documents() -> (LocalServer, Vec<Token>, DocumentID) {
-        let mut server = LocalServer::new(
+    fn create_server() -> LocalServer {
+        LocalServer::new(
             &PathBuf::from("test data server").join(Uuid::new_v4().to_string())
-        );
+        )
+    }
+
+    fn create_server_with_organizations_and_documents() -> (LocalServer, Vec<Token>, DocumentID) {
+        let mut server = create_server();
 
         let mut tokens = Vec::new();
-        tokens.push(create_organization("ApertureScience", &mut server));
-        tokens.push(create_organization("BlackMesa", &mut server));
+        tokens.push(create_organization_and_unlock("ApertureScience", &mut server));
+        tokens.push(create_organization_and_unlock("BlackMesa", &mut server));
 
         server.new_document(&tokens[0], &EncryptedDocument::create_random(), &random_encrypted_document_key()).unwrap();
         let document_id = server.list_documents(&tokens[0]).unwrap().iter().next().unwrap().0.clone();
@@ -255,25 +260,32 @@ mod tests {
         (server, tokens, document_id)
     }
 
-    fn create_organization(name: &str, server: &mut LocalServer) -> Token {
-        let key_pair = dryocbox::KeyPair::gen();
-
-        let mut user_data = HashMap::new();
-        user_data.insert("user1".to_string(), UserShare::create_random());
-        user_data.insert("user2".to_string(), UserShare::create_random());
-
-        server.create_organization(
-            name,
-            &user_data,
-            &key_pair.public_key,
-            &pwhash::Config::default(),
-        ).unwrap();
+    fn create_organization_and_unlock(name: &str, server: &mut LocalServer) -> Token {
+        let key_pair = create_organization(name, "user1", "user2", server).unwrap();
 
         let (.., encrypted_token) =
             server.unlock_vault(name, "user1", "user2").unwrap();
 
         encrypted_token.unseal_to_vec(&key_pair).unwrap()
     }
+
+    fn create_organization(name: &str, username1: &str, username2: &str, server: &mut LocalServer) -> Result<dryocbox::KeyPair, VaultError> {
+        let key_pair = dryocbox::KeyPair::gen();
+
+        let mut user_data = HashMap::new();
+        user_data.insert(username1.to_string(), UserShare::create_random());
+        user_data.insert(username2.to_string(), UserShare::create_random());
+
+        server.create_organization(
+            name,
+            &user_data,
+            &key_pair.public_key,
+            &pwhash::Config::default(),
+        )?;
+
+        Ok(key_pair)
+    }
+
 
     #[test]
     fn correct_token() {
@@ -293,5 +305,55 @@ mod tests {
         assert!(server.update_document(&tokens[1], &document_id, &EncryptedDocument::create_random()).is_err());
         assert!(server.add_owner(&tokens[1], &document_id, "BlackMesa", &random_encrypted_document_key()).is_err());
         assert!(server.delete_document(&tokens[1], &document_id).is_err());
+    }
+
+    #[test]
+    fn names_validation_create_organization() {
+        let mut server = create_server();
+
+        assert!(matches!(
+            create_organization("../../name", "user1", "user2", &mut server),
+            Err(VaultError::ValidationError)
+        ));
+
+        assert!(matches!(
+            create_organization("name", "../../user1", "user2", &mut server),
+            Err(VaultError::ValidationError)
+        ));
+    }
+
+    #[test]
+    fn names_validation_unlock_vault() {
+        let mut server = create_server();
+
+        assert!(matches!(
+            server.unlock_vault("../../name", "user1", "user2"),
+            Err(VaultError::ValidationError)
+        ));
+
+        assert!(matches!(
+            server.unlock_vault("name", "../../user1", "user2"),
+            Err(VaultError::ValidationError)
+        ));
+    }
+
+    #[test]
+    fn names_validation_revoke_user() {
+        let (mut server, tokens, ..) = create_server_with_organizations_and_documents();
+
+        assert!(matches!(
+            server.revoke_user(&tokens[0], "../../user1"),
+            Err(VaultError::ValidationError)
+        ));
+    }
+
+    #[test]
+    fn names_validation_get_organization_key(){
+        let (mut server, ..) = create_server_with_organizations_and_documents();
+
+        assert!(matches!(
+            server.get_public_key_of_organization("../../org"),
+            Err(VaultError::ValidationError)
+        ));
     }
 }

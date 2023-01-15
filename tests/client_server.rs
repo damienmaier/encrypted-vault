@@ -7,11 +7,12 @@ use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
 
 use vault::client::http_connection::HttpConnection;
-use vault::client::organization_creation::{OrganizationBuilder, OrganizationCreationError};
+use vault::client::organization_creation::{OrganizationBuilder};
 use vault::client::session_controller::Controller;
 use vault::data::Document;
 use vault::server::http_server::run_http_server;
 use vault::server_connection::ServerConnection;
+use vault::error::VaultError::{ServerError, DocumentNotFound};
 
 const TEST_DATA_DIRECTORY_PATH: &str = "./test data http";
 
@@ -93,32 +94,40 @@ fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnec
         name: "aperture science 1".to_string(),
         content: "aperture science content 1".to_string(),
     };
-    client_controllers[0].upload(&document);
+    client_controllers[0].upload(&document).unwrap();
 
     let document = Document {
         name: "aperture science 2".to_string(),
         content: "aperture science content 2".to_string(),
     };
-    client_controllers[0].upload(&document);
+    client_controllers[0].upload(&document).unwrap();
 
     let document = Document {
         name: "aperture science star wars shared".to_string(),
         content: "shared content".to_string(),
     };
-    client_controllers[0].upload(&document);
-    client_controllers[0].share("aperture science star wars shared", "StarWars");
+    client_controllers[0].upload(&document).unwrap();
+    client_controllers[0].share("aperture science star wars shared", "StarWars").unwrap();
 
     let document = Document {
         name: "star wars".to_string(),
         content: "star wars content".to_string(),
     };
-    client_controllers[1].upload(&document);
+    client_controllers[1].upload(&document).unwrap();
 
     client_controllers
 }
 
 #[test]
-fn create_organization_same_organization_name() {
+fn create_organization_weak_password() {
+    let builder = OrganizationBuilder::new("test", &fast_and_unsafe_argon_config()).unwrap();
+
+    assert!(builder.clone().add_user("test", "1234").is_err());
+    assert!(builder.clone().add_user("80m32Z$GIdKGK*M", "80m32Z$GIdKGK*M").is_err());
+}
+
+#[test]
+fn already_existing_organization_name() {
     let mut server = set_up_server_with_organizations();
 
     let result = OrganizationBuilder::new("ApertureScience", &fast_and_unsafe_argon_config())
@@ -128,7 +137,7 @@ fn create_organization_same_organization_name() {
         .create_organization(&mut server);
 
 
-    assert!(matches!(result, Err(OrganizationCreationError::ServerError)));
+    assert!(matches!(result, Err(ServerError)));
 }
 
 #[test]
@@ -150,13 +159,13 @@ fn delete_user() {
 
     client_controller.revoke_user("DarthVador").unwrap();
 
-    let controller_option = Controller::unlock_vault_for_organization(
+    let controller_result = Controller::unlock_vault_for_organization(
         &mut server,
         "StarWars",
         "DarthVador", "darthvador80m32Z$GIdKGK*M",
         "Leila", "leila80m32Z$GIdKGK*M",
     );
-    assert!(controller_option.is_none());
+    assert!(matches!(controller_result, Err(ServerError)));
 }
 
 #[test]
@@ -164,7 +173,7 @@ fn delete_user_wrong_token() {
     let mut server = set_up_server_with_organizations();
     let mut client_controllers = authenticate_clients_for_server(&mut server);
 
-    assert!(client_controllers[0].revoke_user("DarthVador").is_none());
+    assert!(matches!(client_controllers[0].revoke_user("DarthVador"), Err(ServerError)));
 
     Controller::unlock_vault_for_organization(
         &mut server,
@@ -180,7 +189,7 @@ fn revoke_token() {
 
     client_controllers[0].revoke_token().unwrap();
 
-    assert!(client_controllers[0].list_document_names().is_none());
+    assert!(matches!(client_controllers[0].list_document_names(), Err(ServerError)));
     client_controllers[1].list_document_names().unwrap();
 }
 
@@ -230,7 +239,7 @@ fn update_document() {
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
     client_controllers[0].update("aperture science 1", &new_document).unwrap();
 
-    assert!(client_controllers[0].download("aperture science 1").is_none());
+        assert!(matches!(client_controllers[0].download("aperture science 1"), Err(DocumentNotFound)));
 
     let downloaded_document = client_controllers[0].download("new name").unwrap();
     assert_eq!(new_document, downloaded_document);
@@ -243,7 +252,7 @@ fn update_shared_document() {
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
     client_controllers[0].update("aperture science star wars shared", &new_document).unwrap();
 
-    assert!(client_controllers[1].download("aperture science star wars shared").is_none());
+    assert!(matches!(client_controllers[1].download("aperture science star wars shared"), Err(DocumentNotFound)));
 
     let downloaded_document = client_controllers[1].download("new name").unwrap();
     assert_eq!(new_document, downloaded_document);

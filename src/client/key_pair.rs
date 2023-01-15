@@ -8,6 +8,8 @@ use dryoc::pwhash::VecPwHash;
 use sharks;
 
 use crate::data::UserShare;
+use crate::error::VaultError;
+use crate::error::VaultError::CryptographyError;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
@@ -17,7 +19,7 @@ const SALT_LENGTH_BYTES: usize = 16;
 
 pub fn create_protected_key_pair(user_credentials: &HashMap<String, String>,
                                  argon_config: &pwhash::Config)
-                                 -> (HashMap<String, UserShare>, dryocbox::PublicKey) {
+                                 -> Result<(HashMap<String, UserShare>, dryocbox::PublicKey), VaultError> {
     let key_pair = dryocbox::KeyPair::gen();
 
     let shares = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY)
@@ -27,42 +29,46 @@ pub fn create_protected_key_pair(user_credentials: &HashMap<String, String>,
     for ((name, password), share) in zip(user_credentials, shares) {
         let salt = rng::randombytes_buf(SALT_LENGTH_BYTES);
 
-        let user_key = get_key_from_password(password, &salt, argon_config);
+        let user_key = get_key_from_password(password, &salt, argon_config)?;
         let encrypted_private_key_share = SymEncryptedData::encrypt(&Vec::from(&share), &user_key);
 
         user_shares.insert(name.clone(), UserShare { salt, encrypted_private_key_share });
     }
 
-    (user_shares, key_pair.public_key)
+    Ok((user_shares, key_pair.public_key))
 }
 
 pub fn retrieve_private_key(
     password1: &str, user_share1: &UserShare, password2: &str, user_share2: &UserShare,
     argon_config: &pwhash::Config)
-    -> dryocbox::SecretKey {
-    let share1 = decrypt_share_with_password(user_share1, password1, argon_config);
-    let share2 = decrypt_share_with_password(user_share2, password2, argon_config);
+    -> Result<dryocbox::SecretKey, VaultError> {
+    let share1 = decrypt_share_with_password(user_share1, password1, argon_config)?;
+    let share2 = decrypt_share_with_password(user_share2, password2, argon_config)?;
 
-    let recovered_secret = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY).recover([&share1, &share2]).unwrap();
+    let recovered_secret = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY).recover([&share1, &share2]).map_err(|_| CryptographyError)?;
 
-    <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(recovered_secret).unwrap().into()
+    Ok(
+        <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(recovered_secret).map_err(|_| CryptographyError)?.into()
+    )
 }
 
-fn get_key_from_password(password: &str, salt: &pwhash::Salt, argon_config: &pwhash::Config) -> dryocsecretbox::Key {
+fn get_key_from_password(password: &str, salt: &pwhash::Salt, argon_config: &pwhash::Config) -> Result<dryocsecretbox::Key, VaultError> {
     let argon_config_with_salt_length = argon_config.clone().with_salt_length(SALT_LENGTH_BYTES);
 
     let (hash, ..) = VecPwHash::hash_with_salt(&password.as_bytes(), salt.clone(), argon_config_with_salt_length)
-        .unwrap()
+        .map_err(|_| CryptographyError)?
         .into_parts();
 
-    <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(hash).unwrap().into()
+    Ok(
+        <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(hash).map_err(|_| CryptographyError)?.into()
+    )
 }
 
-fn decrypt_share_with_password(share: &UserShare, password: &str, argon_config: &pwhash::Config) -> sharks::Share {
-    let user_key = get_key_from_password(&password, &share.salt, argon_config);
-    let decrypted = share.encrypted_private_key_share.decrypt(&user_key);
-
-    sharks::Share::try_from(decrypted.as_slice()).unwrap()
+fn decrypt_share_with_password(share: &UserShare, password: &str, argon_config: &pwhash::Config) -> Result<sharks::Share, VaultError> {
+    let user_key = get_key_from_password(&password, &share.salt, argon_config)?;
+    let decrypted = share.encrypted_private_key_share.decrypt(&user_key)?;
+    
+    sharks::Share::try_from(decrypted.as_slice()).map_err(|_| CryptographyError)
 }
 
 
@@ -83,7 +89,7 @@ mod tests {
 
         let argon_config = pwhash::Config::default().with_memlimit(10000).with_opslimit(1);
 
-        let (user_shares, public_key) = create_protected_key_pair(&user_credentials, &argon_config);
+        let (user_shares, public_key) = create_protected_key_pair(&user_credentials, &argon_config).unwrap();
 
         let secret_key = retrieve_private_key(
             user_credentials.get("Chell").unwrap(),
@@ -91,14 +97,14 @@ mod tests {
             user_credentials.get("Cave").unwrap(),
             user_shares.get("Cave").unwrap(),
             &argon_config,
-        );
+        ).unwrap();
 
         let message = b"The cake is a lie !".to_vec();
         let encrypted_message = DryocBox::seal_to_vecbox(&message, &public_key).unwrap();
-        let decrypted_message = 
+        let decrypted_message =
             DryocBox::unseal_to_vec(&encrypted_message, &dryocbox::KeyPair { public_key, secret_key }).unwrap();
-        
-        
+
+
         assert_eq!(message, decrypted_message)
     }
 }

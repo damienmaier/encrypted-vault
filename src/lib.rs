@@ -6,3 +6,4 @@ pub mod server;
 pub mod config;
 pub mod utils;
 mod validation;
+pub mod error;

@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+
 use dryoc::pwhash;
-use crate::validation::validate_and_standardize_name;
 use zxcvbn::zxcvbn;
+
 use crate::client::key_pair::create_protected_key_pair;
 use crate::error::VaultError;
 use crate::error::VaultError::{NotEnoughUsers, PasswordNotStrong};
 use crate::server_connection::ServerConnection;
+use crate::validation::validate_and_standardize_name;
 
 #[derive(Clone)]
 pub struct OrganizationBuilder {
@@ -16,7 +18,7 @@ pub struct OrganizationBuilder {
 
 impl OrganizationBuilder {
     pub fn new(organization_name: &str, argon_config: &pwhash::Config) -> Result<Self, VaultError> {
-        let organization_name= validate_and_standardize_name(organization_name)?;
+        let organization_name = validate_and_standardize_name(organization_name)?;
         Ok(Self {
             organization_name: organization_name.to_string(),
             argon_config: argon_config.clone(),
@@ -29,7 +31,7 @@ impl OrganizationBuilder {
         let password_entropy = zxcvbn(password, &[&username, &self.organization_name]).map_err(|_| PasswordNotStrong(None))?;
 
         if password_entropy.score() < 4 {
-            Err(PasswordNotStrong(None))
+            Err(password_entropy.feedback().into())
         } else {
             self.user_credentials.insert(username.to_string(), password.to_string());
             Ok(self)

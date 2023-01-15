@@ -10,6 +10,7 @@ use vault::client::http_connection::HttpConnection;
 use vault::client::organization_creation::{OrganizationBuilder};
 use vault::client::session_controller::Controller;
 use vault::data::Document;
+use vault::error::VaultError;
 use vault::server::http_server::run_http_server;
 use vault::server_connection::ServerConnection;
 use vault::error::VaultError::{ServerError, DocumentNotFound};
@@ -120,10 +121,31 @@ fn set_up_server_with_organizations_and_documents() -> Vec<Controller<HttpConnec
 
 #[test]
 fn create_organization_weak_password() {
-    let builder = OrganizationBuilder::new("test", &fast_and_unsafe_argon_config()).unwrap();
+    let builder = OrganizationBuilder::new("ApertureScience", &fast_and_unsafe_argon_config()).unwrap();
 
-    assert!(builder.clone().add_user("test", "1234").is_err());
-    assert!(builder.clone().add_user("80m32Z$GIdKGK*M", "80m32Z$GIdKGK*M").is_err());
+    assert!(
+        matches!(
+            builder.clone().add_user("username", "1234"),
+            Err(VaultError::PasswordNotStrong(_))
+        ),
+        "Weak password"
+    );
+
+    assert!(
+        matches!(
+            builder.clone().add_user("username", "ApertureScience&42"),
+            Err(VaultError::PasswordNotStrong(_))
+        ),
+        "Strong password but similar to organization name"
+    );
+
+    assert!(
+        matches!(
+            builder.clone().add_user("usernameFooBarJohnPeter", "usernameFooBarJohnPeter1234"),
+            Err(VaultError::PasswordNotStrong(_))
+        ),
+        "Strong password but similar to user name"
+    );
 }
 
 #[test]
@@ -239,7 +261,7 @@ fn update_document() {
     let new_document = Document { name: "new name".to_string(), content: "new content".to_string() };
     client_controllers[0].update("aperture science 1", &new_document).unwrap();
 
-        assert!(matches!(client_controllers[0].download("aperture science 1"), Err(DocumentNotFound)));
+    assert!(matches!(client_controllers[0].download("aperture science 1"), Err(DocumentNotFound)));
 
     let downloaded_document = client_controllers[0].download("new name").unwrap();
     assert_eq!(new_document, downloaded_document);

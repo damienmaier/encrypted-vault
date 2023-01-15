@@ -4,7 +4,7 @@ use std::thread;
 
 use dryoc::pwhash;
 use rand::{Rng, thread_rng};
-use rand::distributions::Alphanumeric;
+use uuid::Uuid;
 
 use vault::client::http_connection::HttpConnection;
 use vault::client::organization_creation::{OrganizationBuilder};
@@ -17,14 +17,6 @@ use vault::error::VaultError::{ServerError, DocumentNotFound};
 
 const TEST_DATA_DIRECTORY_PATH: &str = "./test data http";
 
-fn random_string(length: usize) -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect()
-}
-
 
 const FIRST_ALLOWED_TCP_PORT: u16 = 1024;
 const LAST_TCP_PORT: u16 = 65534;
@@ -36,7 +28,7 @@ fn fast_and_unsafe_argon_config() -> pwhash::Config {
 fn set_up_server_with_organizations() -> HttpConnection {
     // As multiple tests are run in parallel,
     // we use a random port and a random data folder to avoid collisions
-    let server_vault_data_directory = Path::new(TEST_DATA_DIRECTORY_PATH).join(random_string(30));
+    let server_vault_data_directory = Path::new(TEST_DATA_DIRECTORY_PATH).join(Uuid::new_v4().to_string());
     let server_port = thread_rng().gen_range(FIRST_ALLOWED_TCP_PORT..LAST_TCP_PORT);
     thread::spawn(move || run_http_server(server_port, server_vault_data_directory));
 

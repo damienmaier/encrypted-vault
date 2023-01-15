@@ -5,8 +5,6 @@ use serde::Serialize;
 use crate::error::VaultError;
 use crate::error::VaultError::CryptographyError;
 
-pub const SYMMETRIC_KEY_LENGTH_BYTES: usize = 32;
-
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SymEncryptedData {
     secret_box: dryocsecretbox::VecBox,

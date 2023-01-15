@@ -7,7 +7,6 @@ use crate::data::EncryptedDocument;
 use crate::error::VaultError;
 use crate::error::VaultError::CryptographyError;
 use crate::symmetric_encryption_helper::SymEncryptedData;
-use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
 #[derive(PartialEq, Debug)]
 pub struct OrganizationEncryptorDecryptor {
@@ -72,7 +71,7 @@ impl OrganizationEncryptorDecryptor {
         let symmetric_key_vec = encrypted_key.unseal_to_vec(&self.key_pair).map_err(|_| CryptographyError)?;
 
         Ok(
-            <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(symmetric_key_vec).map_err(|_| CryptographyError)?.into()
+            <[u8; dryoc::constants::CRYPTO_SECRETBOX_KEYBYTES]>::try_from(symmetric_key_vec).map_err(|_| CryptographyError)?.into()
         )
     }
 }

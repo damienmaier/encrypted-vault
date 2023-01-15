@@ -11,7 +11,6 @@ use crate::data::UserShare;
 use crate::error::VaultError;
 use crate::error::VaultError::CryptographyError;
 use crate::symmetric_encryption_helper::SymEncryptedData;
-use crate::symmetric_encryption_helper::SYMMETRIC_KEY_LENGTH_BYTES;
 
 const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
 const SALT_LENGTH_BYTES: usize = 16;
@@ -48,7 +47,7 @@ pub fn retrieve_private_key(
     let recovered_secret = sharks::Sharks(NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY).recover([&share1, &share2]).map_err(|_| CryptographyError)?;
 
     Ok(
-        <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(recovered_secret).map_err(|_| CryptographyError)?.into()
+        <[u8; dryoc::constants::CRYPTO_BOX_SECRETKEYBYTES]>::try_from(recovered_secret).map_err(|_| CryptographyError)?.into()
     )
 }
 
@@ -60,14 +59,14 @@ fn get_key_from_password(password: &str, salt: &pwhash::Salt, argon_config: &pwh
         .into_parts();
 
     Ok(
-        <[u8; SYMMETRIC_KEY_LENGTH_BYTES]>::try_from(hash).map_err(|_| CryptographyError)?.into()
+        <[u8; dryoc::constants::CRYPTO_SECRETBOX_KEYBYTES]>::try_from(hash).map_err(|_| CryptographyError)?.into()
     )
 }
 
 fn decrypt_share_with_password(share: &UserShare, password: &str, argon_config: &pwhash::Config) -> Result<sharks::Share, VaultError> {
     let user_key = get_key_from_password(&password, &share.salt, argon_config)?;
     let decrypted = share.encrypted_private_key_share.decrypt(&user_key)?;
-    
+
     sharks::Share::try_from(decrypted.as_slice()).map_err(|_| CryptographyError)
 }
 

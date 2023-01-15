@@ -70,12 +70,15 @@ impl LocalServer {
 
 
     fn is_client_owner_of_document(&self, organization_name: &str, document_id: &DocumentID) -> Result<bool, VaultError> {
-        let document_ids: Result<Vec<String>, VaultError> = fs::read_dir(self.organization_document_keys_directory(&organization_name)).map_err(|_| ServerError)?
-            .map(|x|
-                Ok(x.map_err(|_| ServerError)?.file_name().to_str().ok_or(ServerError)?.to_string()))
-            .collect();
-
-        Ok(document_ids?.iter().any(|x| **x == BASE32.encode(document_id)))
+        Ok(
+            // We check that there is a file whose name matches `document_id`
+            // in the folder where the file keys of the organization are stored.
+            fs::read_dir(self.organization_document_keys_directory(&organization_name))
+                .map_err(|_| ServerError)?
+                .filter_map(|dir_entry_result| dir_entry_result.ok())
+                .filter_map(|dir_entry| dir_entry.file_name().into_string().ok())
+                .any(|file_name| file_name == BASE32.encode(document_id))
+        )
     }
 }
 
@@ -348,7 +351,7 @@ mod tests {
     }
 
     #[test]
-    fn names_validation_get_organization_key(){
+    fn names_validation_get_organization_key() {
         let (mut server, ..) = create_server_with_organizations_and_documents();
 
         assert!(matches!(

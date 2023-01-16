@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use dryoc::pwhash;
+use dryoc::pwhash::VecPwHash;
 use zxcvbn::zxcvbn;
 
 use crate::client::key_pair::create_protected_key_pair;
 use crate::error::VaultError;
-use crate::error::VaultError::{NotEnoughUsers, PasswordNotStrong};
+use crate::error::VaultError::{CryptographyError, NotEnoughUsers, PasswordNotStrong};
 use crate::server_connection::ServerConnection;
 use crate::validation::validate_and_standardize_name;
 
@@ -49,4 +51,25 @@ impl OrganizationBuilder {
     }
 }
 
+pub fn empirically_choose_argon_config(argon_memlimit: usize) -> Result<pwhash::Config, VaultError> {
+    for iteration_cost in (0..100).map(|exponent| 1.5f32.powi(exponent) as u64) {
+        let argon_config = pwhash::Config::interactive()
+            .with_memlimit(argon_memlimit)
+            .with_opslimit(iteration_cost);
+
+        println!("Testing iteration cost {iteration_cost}...");
+
+        let start_time = Instant::now();
+        VecPwHash::hash(&"testPassword1234".as_bytes(), argon_config.clone())
+            .map_err(|_| CryptographyError)?;
+        let hashing_duration = start_time.elapsed().as_secs();
+
+        println!("Hashing took {hashing_duration} seconds");
+
+        if hashing_duration >= 10 {
+            return Ok(argon_config);
+        }
+    }
+    Err(CryptographyError)
+}
 

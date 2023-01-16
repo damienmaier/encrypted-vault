@@ -7,6 +7,7 @@ pub enum VaultError {
     NotEnoughUsers,
     DocumentNotFound,
     CryptographyError,
+    InputError,
 }
 
 impl From<&Option<zxcvbn::feedback::Feedback>> for VaultError {

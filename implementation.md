@@ -2,15 +2,17 @@
 
 ## Client server communication
 
-All communications between the client and the server are done using an HTTPS API, with TLS 1.3.
+All communications between the client and the server are done using an HTTPS API, with **TLS 1.3**.
 
-We use a root self-signed X.509 certificate, and a server certificate signed by the root certificate.
+We use a root X.509 certificate, and a server certificate signed by the root certificate.
 
 The server has access to the server certificate and its associated private key, in order to authenticate himself with the client.
 
-The client has access to the root certificate, and he only accepts to connect to the server if the server uses a certificate signed by the root certificate.
+The client has access to the root certificate, and he only accepts to connect to the server if the server uses a certificate signed by the root certificate. The client does not use the OS's certificate authorities.
 
 ## HTTP API
+
+Here is a list of the services provided through the API :
 
 | Action                  | Data sent with the request                                                                                | Data sent with the response                                                                | Authentication token required | Restriction                                                      |
 |-------------------------|-----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------|------------------------------------------------------------------|

@@ -31,7 +31,11 @@ We use the implementation provided by the crate [sharks](https://docs.rs/sharks/
 
 We use the Rust module [dryoc::pwhash](https://docs.rs/dryoc/latest/dryoc/pwhash/index.html)
 
-TODO cost parameters
+Each organization has its own Argon2 configuration, that is decided when the organization is created.
+
+- The memory usage is chosen by the client organization, but must be at least 1 GB.
+- The execution time is chosen automatically, by increasing it exponentially until hashing a password takes at least 10 seconds on the client computer.
+- [dryoc::pwhash](https://docs.rs/dryoc/latest/dryoc/pwhash/index.html) does not allow to choose the parallelism cost.
 
 ## Randomness
 
@@ -40,8 +44,3 @@ All the random values are chosen using the randomness provided by the OS.
 For the nonces, symmetric keys and asymmetric keys, this is done by using `dryoc::dryocsecretbox::Nonce::gen()`, `dryoc::dryocsecretbox::Key::gen()`, `dryoc::dryocbox::Nonce::gen()` and `dryoc::dryocbox::KeyPair::gen()`. Those functions internally use [rand::rngs::OsRng](https://docs.rs/rand/0.5.0/rand/rngs/struct.OsRng.html), which is an RNG that retrieves randomness from the OS.
 
 The salts and authentication tokens are chosen using `dryoc::rng`, which also uses [rand::rngs::OsRng](https://docs.rs/rand/0.5.0/rand/rngs/struct.OsRng.html).
-
-
-## TLS
-
-TODO

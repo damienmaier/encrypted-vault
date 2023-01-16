@@ -1,3 +1,5 @@
+//! Provides functions that must be called from the user interface to create an organization
+
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -11,6 +13,10 @@ use crate::error::VaultError::{CryptographyError, NotEnoughUsers, PasswordNotStr
 use crate::server_connection::ServerConnection;
 use crate::validation::validate_and_standardize_name;
 
+/// Used to prepare the data needed to create an organization and to send it to the server.
+/// 
+/// Once an instance of OrganizationBuilder is created, at least two users must be added by calling add_user.
+/// The organization request can then be sent to the server with create_organization.
 #[derive(Clone)]
 pub struct OrganizationBuilder {
     organization_name: String,
@@ -28,6 +34,9 @@ impl OrganizationBuilder {
         })
     }
 
+    /// Adds a user and its password.
+    /// 
+    /// If the user password is not strong enough, a PasswordNotStrong error is returned, with an optional text providing useful information to improve the password.
     pub fn add_user(mut self, username: &str, password: &str) -> Result<Self, VaultError> {
         let username = validate_and_standardize_name(username)?;
         let password_entropy = zxcvbn(password, &[&username, &self.organization_name]).map_err(|_| PasswordNotStrong(None))?;
@@ -40,6 +49,7 @@ impl OrganizationBuilder {
         }
     }
 
+    /// Creates the organization key pair, protects the private key with the user passwords and sends an organization creation request to the server.
     pub fn create_organization<A: ServerConnection>(self, server: &mut A) -> Result<(), VaultError> {
         if self.user_credentials.len() < 2 {
             return Err(NotEnoughUsers);
@@ -51,10 +61,13 @@ impl OrganizationBuilder {
     }
 }
 
-pub fn empirically_choose_argon_config(argon_memlimit: usize) -> Result<pwhash::Config, VaultError> {
+/// Automatically chooses an Argon2 computation cost such that computing a hash takes at least 10 seconds.
+/// 
+/// Returns an Argon2 config based on `argon_memlimit_kb` and the chosen computation time.
+pub fn empirically_choose_argon_config(argon_memlimit_kb: usize) -> Result<pwhash::Config, VaultError> {
     for iteration_cost in (0..100).map(|exponent| 1.5f32.powi(exponent) as u64) {
         let argon_config = pwhash::Config::interactive()
-            .with_memlimit(argon_memlimit)
+            .with_memlimit(argon_memlimit_kb)
             .with_opslimit(iteration_cost);
 
         println!("Testing iteration cost {iteration_cost}...");

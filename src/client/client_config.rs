@@ -1,3 +1,8 @@
+//! Client configuration
+//!
+//! The configuration is read from a config file.
+//! If the file does not exist, a config file with default values is automatically created.
+
 use std::path::PathBuf;
 use confy;
 use serde::{Serialize, Deserialize};

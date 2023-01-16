@@ -1,3 +1,5 @@
+//! HTTPS interface used by the client to communicate with the server
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 

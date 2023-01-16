@@ -1,3 +1,5 @@
+//! Provides functions that must be called from the user interface to access the vault
+
 use dryoc::dryocbox;
 
 use crate::client::encryptor_decryptor::OrganizationEncryptorDecryptor;
@@ -8,7 +10,9 @@ use crate::error::VaultError::{DocumentNotFound};
 use crate::server_connection::ServerConnection;
 use crate::validation::validate_and_standardize_name;
 
-
+/// A controller instance represents a client session.
+/// A new controller must first be built with `unlock_vault_for_organization`, in order to retrieve the organization private key.
+/// The controller is then used to manipulate documents.
 #[derive(Debug, PartialEq)]
 pub struct Controller<A: ServerConnection + Clone> {
     server: A,
@@ -17,6 +21,7 @@ pub struct Controller<A: ServerConnection + Clone> {
 }
 
 impl<A: ServerConnection + Clone> Controller<A> {
+    /// Retrieves the organization private key and decrypts the authentication token
     pub fn unlock_vault_for_organization(server: &mut A, organization_name: &str,
                                          username1: &str, password1: &str,
                                          username2: &str, password2: &str)
@@ -40,11 +45,13 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.server.revoke_user(&self.token, username)
     }
 
+    /// Logs the client out
     pub fn revoke_token(&mut self) -> Result<(), VaultError> {
         self.server.revoke_token(&self.token)
     }
 
 
+    /// Uploads a new document
     pub fn upload(&mut self, document: &Document) -> Result<(), VaultError> {
         let (encrypted_document, encrypted_key) =
             self.encryptor_decryptor.generate_document_key_and_encrypt_document(document)?;
@@ -66,6 +73,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.encryptor_decryptor.find_document_id_from_name(&document_list, document_name).ok_or(DocumentNotFound)
     }
 
+    /// Downloads a document
     pub fn download(&mut self, document_name: &str) -> Result<Document, VaultError> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
 
@@ -75,6 +83,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.encryptor_decryptor.decrypt_document(&encrypted_document, &document_key)
     }
 
+    /// Updates a document
     pub fn update(&mut self, document_name: &str, new_document: &Document) -> Result<(), VaultError> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
 
@@ -83,6 +92,7 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.server.update_document(&self.token, &document_id, &new_document_encrypted)
     }
 
+    /// Allows an other organization to become an owner of a document
     pub fn share(&mut self, document_name: &str, other_organization_name: &str) -> Result<(), VaultError> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
 
@@ -93,12 +103,14 @@ impl<A: ServerConnection + Clone> Controller<A> {
         self.server.add_owner(&self.token, &document_id, other_organization_name, &new_encrypted_document_key)
     }
 
+    /// Deletes a document. The document is still accessible by the other owners.
     pub fn delete(&mut self, document_name: &str) -> Result<(), VaultError> {
         let document_id = self.get_id_of_document_by_name(document_name)?;
         self.server.delete_document(&self.token, &document_id)
     }
 }
 
+// We implement drop to ensure that the session token is revoked when the controller is destroyed
 impl<A: ServerConnection + Clone> Drop for Controller<A> {
     fn drop(&mut self) {
         if let Err(_) = self.revoke_token(){

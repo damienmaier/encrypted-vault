@@ -1,3 +1,5 @@
+//! Provides useful functions for serializing objects and storing them as files on the disk
+
 use std::fs;
 use std::path::Path;
 

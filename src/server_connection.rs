@@ -1,3 +1,5 @@
+//! API that the server provides to the client
+
 use std::collections::HashMap;
 use dryoc::{dryocbox, pwhash};
 use crate::data::{DocumentID, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare, EncryptedDocument};

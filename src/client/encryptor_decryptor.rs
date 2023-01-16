@@ -1,3 +1,5 @@
+//! Provides functions that are used once the client has recovered its private key, to access and manipulate the documents
+
 use dryoc::{dryocbox, dryocsecretbox};
 use dryoc::dryocbox::DryocBox;
 use dryoc::dryocsecretbox::NewByteArray;
@@ -8,6 +10,7 @@ use crate::error::VaultError;
 use crate::error::VaultError::CryptographyError;
 use crate::symmetric_encryption_helper::SymEncryptedData;
 
+/// Owns the organization key pair. Performs encryption / decryption of the data coming from / going to the server.
 #[derive(PartialEq, Debug)]
 pub struct OrganizationEncryptorDecryptor {
     key_pair: dryocbox::KeyPair,
@@ -18,16 +21,19 @@ impl OrganizationEncryptorDecryptor {
         OrganizationEncryptorDecryptor { key_pair }
     }
 
-    pub fn find_document_id_from_name(&self, document_list: &Vec<(DocumentID, EncryptedDocumentNameAndKey)>, name: &str) -> Option<DocumentID> {
-        document_list
+    /// Using a list of document ids and corresponding encrypted document names coming from the server,
+    /// searches for the document id of the document named `document_name`
+    pub fn find_document_id_from_name(&self, encrypted_document_names: &Vec<(DocumentID, EncryptedDocumentNameAndKey)>, document_name: &str) -> Option<DocumentID> {
+        encrypted_document_names
             .iter()
             .filter(|(.., name_and_key)|
-                self.decrypt_document_name(&name_and_key.data, &name_and_key.key) == Ok(name.to_string()))
+                self.decrypt_document_name(&name_and_key.data, &name_and_key.key) == Ok(document_name.to_string()))
             .map(|(id, ..)| id)
             .cloned()
             .next()
     }
 
+    /// Chooses a random document key, encrypts the document with the document key and encrypts the document key with the organization public key
     pub fn generate_document_key_and_encrypt_document(&self, document: &Document)
                                                       -> Result<(EncryptedDocument, EncryptedDocumentKey), VaultError> {
         let document_key = dryocsecretbox::Key::gen();
@@ -56,6 +62,7 @@ impl OrganizationEncryptorDecryptor {
         Ok(document.encrypt(&document_key))
     }
 
+    /// Decrypts a document key and encrypts it with the public key of an other organization
     pub fn encrypt_document_key_for_other_organization(&self, encrypted_document_key: &EncryptedDocumentKey,
                                                        other_organization_public_key: &dryocbox::PublicKey)
                                                        -> Result<EncryptedDocumentKey, VaultError> {

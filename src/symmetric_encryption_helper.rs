@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::error::VaultError;
 use crate::error::VaultError::CryptographyError;
 
+/// Represents a symmetric encrypted data and the associated nonce
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct SymEncryptedData {
     secret_box: dryocsecretbox::VecBox,

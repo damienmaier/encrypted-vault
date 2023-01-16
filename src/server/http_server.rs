@@ -1,3 +1,5 @@
+//! Functions that make the HTTPS server run. The server only accepts TLS 1.3 connections.
+
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::net::IpAddr::V4;
@@ -39,6 +41,7 @@ pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
     let config = ServerConfig::builder()
         .with_safe_default_cipher_suites()
         .with_safe_default_kx_groups()
+        // We only allow TLS 1.3
         .with_protocol_versions(&[&rustls::version::TLS13]).expect("Could not configure server with TLS 1.3")
         .with_no_client_auth()
         .with_single_cert(

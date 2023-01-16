@@ -1,3 +1,5 @@
+//! Functions that handle requests made to the server
+
 use std::collections::HashMap;
 use std::fs;
 use std::fs::DirEntry;

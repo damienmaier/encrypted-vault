@@ -1,3 +1,5 @@
+//! Provides functions used to create and retrieve the client key pair
+
 use std::collections::HashMap;
 use std::iter::zip;
 
@@ -15,7 +17,9 @@ use crate::symmetric_encryption_helper::SymEncryptedData;
 const NB_USERS_REQUIRED_TO_RETRIEVE_PRIVATE_KEY: u8 = 2;
 const SALT_LENGTH_BYTES: usize = 16;
 
-
+/// Creates a key pair, splits the private key using shamir secret sharing and encrypts the shares with the user passwords.
+/// 
+/// Returns the user shares associated with the usernames, and the public key.
 pub fn create_protected_key_pair(user_credentials: &HashMap<String, String>,
                                  argon_config: &pwhash::Config)
                                  -> Result<(HashMap<String, UserShare>, dryocbox::PublicKey), VaultError> {
@@ -37,6 +41,7 @@ pub fn create_protected_key_pair(user_credentials: &HashMap<String, String>,
     Ok((user_shares, key_pair.public_key))
 }
 
+/// Retrieves a private key using the the encrypted shares and the user passwords
 pub fn retrieve_private_key(
     password1: &str, user_share1: &UserShare, password2: &str, user_share2: &UserShare,
     argon_config: &pwhash::Config)

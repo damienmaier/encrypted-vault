@@ -3,11 +3,15 @@ use std::time::Instant;
 use dryoc::rng;
 use crate::data::{Token, TOKEN_LENGTH_BYTES};
 
+/// Represents a pool of current client sessions.
+/// Each session is associated to a unique token and an organization name.
+/// If no activity from a session is detected for a certain amount of time, the session is removed
 pub struct SessionManager {
     sessions: HashMap<Token, Session>,
     timeout: u64,
 }
 
+/// Represents a client session.
 struct Session {
     organization_name: String,
     last_activity_time: Instant,

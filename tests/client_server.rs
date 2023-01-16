@@ -1,3 +1,12 @@
+//! Integration tests that simulate interactions between clients and server instances.
+//!
+//! Most of the test follow the following pattern :
+//! - An instance of the server is run
+//! - Some setup requests are performed from the client to create some organizations and documents on the server
+//! - The client performs some actions that we want to test, and checks the result.
+//!
+//! As Cargo runs multiple tests in parallel, each server instance is run with a random port and data directory.
+
 #[cfg(test)]
 use std::path::Path;
 use std::thread;

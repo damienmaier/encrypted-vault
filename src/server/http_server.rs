@@ -10,11 +10,11 @@ use axum_server::tls_rustls::RustlsConfig;
 use dryoc::{dryocbox, pwhash};
 use reqwest::StatusCode;
 use rustls::{Certificate, PrivateKey, ServerConfig};
-use crate::config::{CLIENT_CERTIFICATE_KEY_LOCATION, CLIENT_CERTIFICATE_LOCATION};
 
 use crate::data::{DocumentID, EncryptedDocument, EncryptedDocumentKey, EncryptedDocumentNameAndKey, EncryptedToken, Token, UserShare};
 use crate::error::VaultError;
 use crate::server::local_server::LocalServer;
+use crate::server::server_config::SERVER_FILES_LOCATION;
 use crate::server_connection::ServerConnection;
 use crate::utils;
 
@@ -31,6 +31,9 @@ pub const DELETE_DOCUMENT_ENDPOINT: &str = "/delete_document";
 pub const GET_PUBLIC_KEY_ENDPOINT: &str = "/get_public_key_of_organization";
 pub const ADD_OWNER_ENDPOINT: &str = "/add_owner";
 
+pub const SERVER_CERTIFICATE_FILE_NAME: &str = "server_certificate.pem";
+pub const SERVER_CERTIFICATE_KEY_FILE_NAME: &str = "server_certificate_key.key";
+
 #[tokio::main]
 pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
     let config = ServerConfig::builder()
@@ -41,11 +44,13 @@ pub async fn run_http_server(port: u16, data_storage_directory: PathBuf) {
         .with_single_cert(
             vec![
                 Certificate(utils::get_certificate_der_from_pem_file(
-                    &CLIENT_CERTIFICATE_LOCATION.into()).expect("Could not read server certificate")
+                    &PathBuf::from(SERVER_FILES_LOCATION).join(SERVER_CERTIFICATE_FILE_NAME).into())
+                    .expect("Could not read server certificate")
                 )
             ],
             PrivateKey(
-                utils::get_key_der_from_pem_file(&CLIENT_CERTIFICATE_KEY_LOCATION.into()).expect("Could not read server key")
+                utils::get_key_der_from_pem_file(&PathBuf::from(SERVER_FILES_LOCATION).join(SERVER_CERTIFICATE_KEY_FILE_NAME).into())
+                    .expect("Could not read server key")
             ),
         )
         .expect("Could not build server configuration");

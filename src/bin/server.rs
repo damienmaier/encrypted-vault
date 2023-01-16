@@ -1,8 +1,8 @@
 use vault::server::http_server;
-use vault::config::SERVER_PORT;
+use vault::server::server_config::ServerConfig;
 
 fn main() {
     println!("Hello, server!");
 
-    http_server::run_http_server(SERVER_PORT, "vault-data".into());
+    http_server::run_http_server(ServerConfig::get().server_port, "vault-data".into());
 }

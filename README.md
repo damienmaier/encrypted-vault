@@ -29,10 +29,60 @@ A single server (online vault) can be used by several client organizations. Each
 - There is an active adversary between the client and the server.
 - Users can not dump the memory of the client software.
 
-## Application design
+## Security design
 
-[Application design](implementation.md)
+[Security design](implementation.md)
 
 ## Cryptographic primitives
 
 [Cryptographic primitives](cyptography_primitives.md)
+
+## What is implemented
+
+- A fully functional server, that stores its data in files on the disk
+- The "backend" for a client, i.e. a set of structs and functions that are expected to be called from a user interface
+- Integration tests, that automatically run server instances and call functions from the client backend
+- A basic and ugly command line client application
+
+## How to build and run this project
+
+### TLS certificates
+
+The client and the server need certificates originating from a PKI.
+
+- Place your PKI **root certificate** in `<project root>/client_files/root_certificate.pem`
+- Place the **server certificate** signed by the root certificate in `<project root>/server_files/server_certificate.pem`
+- Place the **private key** associated with the server certificate in `<project root>/server_files/server_certificate_key.key`
+
+If you just want to test this application and need a server certificate for `localhost`, you can create the appropriate certificates by running the following commands :
+
+```shell
+mkdir client_files
+mkdir server_files
+
+openssl req -x509 -days 365 -subj "/C=/ST=/L=/O=/CN=vaultroot" -addext basicConstraints=critical,CA:true -nodes -out client_files/root_certificate.pem -keyout root_certificate_private_key.key
+openssl req -CA client_files/root_certificate.pem -CAkey root_certificate_private_key.key -subj "/C=/ST=/L=/O=/CN=localhost" -addext basicConstraints=critical,CA:false -nodes -out server_files/server_certificate.pem -keyout server_files/server_certificate_key.key
+```
+
+This :
+
+- Creates a CA certificate
+- Creates a leaf certificate signed by the CA certificate, for the name `localhost`
+
+### Configuration files
+
+The server reads its configuration from `<project root>/server_files/config`. The client reads its configuration from `<project root>/client_files/config`.
+
+If those files do not exist, they are automatically created with some default values.
+
+### Running the server
+
+```shell
+cargo run --bin server
+```
+
+### Running the client
+
+```shell
+cargo run --bin client
+```

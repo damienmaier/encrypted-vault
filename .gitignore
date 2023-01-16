@@ -3,4 +3,5 @@ test data http
 test data server
 server_files
 client_files
+root_certificate_private_key.key
 vault-data
